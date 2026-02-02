@@ -43,7 +43,7 @@ const getPoolsService = () => {
 };
 
 const commands = {
-  // EXAMPLES
+  // Commands including examples
 
   // Hub
   'hub:update': {
@@ -68,6 +68,50 @@ const commands = {
   'disks:list': {
     description: 'List all disks',
     handler: async () => await getService('disks').getAllDisks()
+  },
+
+  // LXC
+  'lxc:backup': {
+    description: 'Backup a LXC container',
+    handler: async (args) => {
+      const name = args[0];
+      const options = args[1] ? JSON.parse(args[1]) : {};
+
+      if (!name) {
+        throw new Error('Container name is required. Usage: lxc:backup <name> [options-json]');
+      }
+
+      // Make sure poll active container backup operations until finished
+      const lxcService = getService('lxc');
+      const result = await lxcService.backupContainer(name, options);
+      while (lxcService.getActiveOperation(name)) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      return { ...result, completed: true };
+    }
+  },
+
+  'lxc:snapshot': {
+    description: 'Snapshot a LXC container',
+    handler: async (args) => {
+      const name = args[0];
+      const snapshot_name = args[1] || '';
+      const options = args[2] ? JSON.parse(args[2]) : {};
+
+      if (!name) {
+        throw new Error('Container name is required. Usage: lxc:snapshot <name> [options-json]');
+      }
+
+      // Make sure poll active container snapshot operations until finished
+      const lxcService = getService('lxc');
+      const result = await lxcService.createSnapshot(name, snapshot_name, options);
+      while (lxcService.getActiveOperation(name)) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      return { ...result, completed: true };
+    }
   },
 
   // Help
@@ -96,7 +140,8 @@ async function main() {
   }
 
   try {
-    const result = await commands[command].handler();
+    const args = process.argv.slice(3);
+    const result = await commands[command].handler(args);
     if (result !== null) {
       console.log(JSON.stringify(result, null, 2));
     }
