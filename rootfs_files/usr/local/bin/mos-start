@@ -428,6 +428,28 @@ start_zram() {
   fi
 }
 
+# Set up binfmt
+binfmt_setup() {
+  BINFMT=$(echo $SYSTEM_JSON | jq -r '.binfmt.enabled')
+  if [ "$BINFMT" = "true" ] ; then
+    if ! mountpoint -q /proc/sys/fs/binfmt_misc ; then
+      mount -t binfmt_misc binfmt_misc /proc/sys/fs/binfmt_misc
+    fi
+    for arch in $(echo $SYSTEM_JSON | jq -r '.binfmt.architectures[] // empty' 2>/dev/null); do
+      if ! ls /proc/sys/fs/binfmt_misc/qemu-$arch >/dev/null 2>&1 ; then
+        case "$arch" in
+          aarch64)
+            echo ':qemu-aarch64:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xb7\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:/usr/bin/qemu-aarch64-static:F' > /proc/sys/fs/binfmt_misc/register
+          ;;
+          *)
+            :
+          ;;
+        esac
+      fi
+    done
+  fi
+}
+
 # chmod /dev/dri if exists
 chmod_dri() {
   [ -d /dev/dri ] && \
@@ -462,6 +484,7 @@ if [ "$1" = "os" ] ; then
   start_nut
   start_samba
   start_nfs
+  binfmt_setup
   start_docker
   start_lxc
   start_vm
@@ -477,6 +500,8 @@ if [ "$1" = "os" ] ; then
     beep -f 523 -l 100 -n -f 587 -l 100 -n -f 659 -l 200
   fi
   write_run
+elif [ "$1" = "binfmt" ] ; then
+  binfmt_setup
 elif [ "$1" = "docker" ] ; then
   start_docker
 elif [ "$1" = "lxc" ] ; then
