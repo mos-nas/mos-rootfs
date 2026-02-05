@@ -1,7 +1,7 @@
 #!/bin/bash
 COMMAND=$(basename "$0")
 
-echo "WARNING: USAGE of $COMMAND in MOS is discuraged"
+echo "WARNING: USAGE of $COMMAND in MOS is discouraged"
 echo -n "Continue? [y/N]: "
 read -r response
 case "$response" in
