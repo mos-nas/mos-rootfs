@@ -70,6 +70,14 @@ start_ssh() {
   fi
 }
 
+# Start dnsmasq service if enabled
+start_dnsmasq() {
+  DNSMASQ_ENABLED=$(echo $NETWORK_JSON | jq -r '.services.dnsmasq.enabled')
+  if [ "$DNSMASQ_ENABLED" = "true" ] ; then
+    /etc/init.d/dnsmasq start
+  fi
+}
+
 # Start ntpd service if enabled
 start_ntp() {
   NTP_ENABLED=$(echo $SYSTEM_JSON | jq -r '.ntp.enabled')
@@ -471,6 +479,7 @@ if [ "$1" = "os" ] ; then
   start_notify
   start_smart
   start_sensors_detect
+  start_dnsmasq
   start_script
   modify_issue
   start_ntp
