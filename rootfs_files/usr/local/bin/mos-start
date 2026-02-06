@@ -8,6 +8,12 @@ NETWORK_JSON=$(jq '.' /boot/config/network.json 2>/dev/null)
 HUB_JSON=$(jq '.' /boot/config/system/hub.json 2>/dev/null)
 ZRAM_JSON=$(jq '.' /boot/config/system/zram.json 2>/dev/null)
 
+# Make sure to change default api port from 3000 to 998
+# May be removed in the future (change affects: 0.1.8-beta and up)
+if [ -f /boot/config/api/env ] ; then
+  sed -i 's/^PORT=3000$/PORT=998/' /boot/config/api/env
+fi
+
 # Execute echo to get one emty line
 echo
 
