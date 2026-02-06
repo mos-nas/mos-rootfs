@@ -102,6 +102,9 @@ stop_mos() {
   if [ -f /var/run/mos-api.pid ] ; then
     /etc/init.d/api stop
   fi
+  if [ -f /var/run/dnsmasq/dnsmasq.pid ] ; then
+    /etc/init.d/dnsmasq stop
+  fi
   if [ ! -z "$(echo $POOLS_JSON | jq -r '.[] | select(.type == "nonraid") // ""')" ] ; then
     POOL=$(echo $POOLS_JSON | jq -r '.[] | select(.type == "nonraid") | .name')
     umount /mnt/$POOL >/dev/null 2>&1
