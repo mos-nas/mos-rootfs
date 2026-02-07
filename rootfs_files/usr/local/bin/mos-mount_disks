@@ -278,7 +278,7 @@ do
       if [ "$PARITY_COUNT" != "0" ] ; then
         if [ "$UNCLEAN_CHECK" == "true" ] ; then
           mos-snapraid $POOL check >/dev/null 2>&1
-          notify -t "SnapRAID" -m "Ceck for $POOL started" -p "alert"
+          notify -t "SnapRAID" -m "Check for $POOL started" -p "alert"
         else
           notify -t "SnapRAID" -m "Check for $POOL on unclean shutdown is disabled" -p "alert"
         fi
