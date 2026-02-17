@@ -87,6 +87,10 @@ start_nginx() {
 
   mkdir -p /var/log/nginx /var/www/mos-plugins >/dev/null 2>&1
 
+  # Get port from Frontend and inject it into nginx.conf
+  FRONTEND_HTTP_PORT=$(jq -r '.webui.ports.http // 80' /boot/config/system.json)
+  sed -i '/# MOSHTTPPORT/{n; s/listen\s*[0-9]*/listen                  '$FRONTEND_HTTP_PORT'/}' /etc/nginx/nginx.conf
+
   start-stop-daemon --start --quiet --pidfile $PID --exec $DAEMON --test > /dev/null || return 1
   start-stop-daemon --start --quiet --pidfile $PID --exec $DAEMON -- \
     $DAEMON_OPTS 2>/dev/null || return 2
