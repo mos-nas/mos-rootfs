@@ -93,12 +93,6 @@ done
     fi
   done
 
-  # Put parity devices into sleep
-  for parity in $PARITY
-  do
-    hdparm -y $(realpath /dev/disk/by-uuid/$parity)
-  done
-
   # Make sure to write results file when check is issued
   if [ "$2" == "check" ] ; then
     # Check if results file is present
