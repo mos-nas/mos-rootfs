@@ -10,7 +10,7 @@ mkdir -p /var/mos/mos-update >/dev/null 2>&1
 get_releases() {
   echo "Trying to get MOS releases"
 
-  GH_TOKEN=$(jq -r '.github // empty' /boot/config/system/tokens.json)
+  GH_TOKEN=$(jq -r '.github // empty' /boot/config/system/tokens.json 2>/dev/null)
   if [ ! -z "$GH_TOKEN" ] ; then
     TOKEN="$(decrypt_password "$GH_TOKEN" "tokens")"
     HEADER=(--header "Authorization: Bearer $TOKEN")
