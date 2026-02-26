@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Call mos-os_get_releases to get available MOS versions
+if ! /usr/local/bin/mos-os_get_releases ; then
+  exit 1
+fi
+
+# Get current installed version
+VERSION=$(jq -r '.mos.version' /etc/mos-release.json)
+CHANNEL=$(jq -r '.mos.channel' /etc/mos-release.json)
+
+# Get latest version
+AVAIL_V=$(jq -r --arg channel "-${CHANNEL}" '.[] | select(.tag_name | contains($channel)) | .tag_name' /var/mos/mos-update/releases.json | sort -V | tail -1)
+if [ -z "${AVAIL_V}" ] ; then
+  exit 1
+fi
+
+# Assemble current version
+CUR_V="${VERSION}-${CHANNEL}"
+
+# Read /var/mos/mos_update_check if notification about new version wasn't already sent
+if [ "$(cat /var/mos/mos_update_check 2>/dev/null)" != "$AVAIL_V" ] ; then
+  # Send notification and make sure to write /var/mos/mos_update_check to avoid duplicate messages
+  if [ "$CUR_V" != "$AVAIL_V" ] ; then
+    notify -t "MOS Update" -m "New MOS version: $VERSION on $CHANNEL channel found!"
+    echo "${VERSION}-${CHANNEL}" > /var/mos/mos_update_check
+  fi
+fi
