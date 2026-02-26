@@ -38,8 +38,8 @@ if [ "$2" != "update_container" ] ; then
   # Import MOS functions
   . /usr/local/lib/functions/mos-common
 
-  GH_TOKEN=$(jq -r '.github // empty' /boot/config/system/tokens.json)
-  DOCKER_TOKEN=$(jq -r '.dockerhub // empty' /boot/config/system/tokens.json)
+  GH_TOKEN=$(jq -r '.github // empty' /boot/config/system/tokens.json 2>/dev/null)
+  DOCKER_TOKEN=$(jq -r '.dockerhub // empty' /boot/config/system/tokens.json 2>/dev/null)
 
   if [[ -z "$GH_TOKEN" && -z "$DOCKER_TOKEN" ]] ; then
     unset DOCKER_CONFIG
