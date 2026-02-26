@@ -4,6 +4,20 @@ crontab=""
 # Set variables
 crontab="# Set Environment for cronjobs"'\n'"SHELL=/bin/bash"'\n'"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"'\n'"TERM=xterm"'\n'
 
+# Read system.json
+SYSTEM_JSON=$(jq -r '.' /boot/config/system.json 2>/dev/null)
+MOS_UPDATE_CHECK_ENABLED=$(echo $SYSTEM_JSON | jq -r '.update_check.enabled')
+
+# Scan for MOS update Schedules and add them to cron list
+mos_cron=""
+if [ "$MOS_UPDATE_CHECK_ENABLED" != "" ] && [ "$MOS_UPDATE_CHECK_ENABLED" != "null" ] && [ "$MOS_UPDATE_CHECK_ENABLED" == "true" ]; then
+  MOS_UPDATE_CHECK_SCHEDULE=$(echo "$SYSTEM_JSON" | jq -r '.update_check.update_check_schedule')
+  if [ "$MOS_UPDATE_CHECK_SCHEDULE" != "" ] && [ "$MOS_UPDATE_CHECK_SCHEDULE" != "null" ] ; then
+    mos_cron="# MOS Update Check Interval:"'\n'"$MOS_UPDATE_CHECK_SCHEDULE /usr/local/bin/mos-update_check > /dev/null 2>&1"'\n'
+  fi
+fi
+crontab="$crontab$mos_cron"
+
 # Read pools.json
 POOLS_JSON=$(jq -r '.' /boot/config/pools.json 2>/dev/null)
 POOLS_MERGERFS=$(echo $POOLS_JSON | jq -r '.[] | select(.type == "mergerfs") | .id')
