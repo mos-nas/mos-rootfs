@@ -16,7 +16,7 @@ mkdir -p /var/mos/mos-drivers >/dev/null 2>&1
 # Get releases:
 get_releases() {
   echo "Trying to get MOS Drivers for Kernel: $UNAME"
-  GH_TOKEN=$(jq -r '.github // empty' /boot/config/system/tokens.json)
+  GH_TOKEN=$(jq -r '.github // empty' /boot/config/system/tokens.json 2>/dev/null)
   if [ ! -z "$GH_TOKEN" ] ; then
     TOKEN="$(decrypt_password "$GH_TOKEN" "tokens")"
     HEADER=(--header "Authorization: Bearer $TOKEN")
