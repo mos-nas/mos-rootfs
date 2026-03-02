@@ -115,6 +115,9 @@ ifup_hotplug () {
 }
 
 # MOS custom:
+NETWORK_JSON="/boot/config/network.json"
+
+# MOS custom:
 disable_ipv6() {
   log_progress_msg "Disabling IPv6"
   sysctl -wq net.ipv6.conf.all.disable_ipv6=1
@@ -163,85 +166,309 @@ bridge_add_interface() {
   done
 }
 
-# MOS custom:
+# MOS custom: Detect all physical network interfaces
+detect_interfaces() {
+  DETECTED="["
+  FIRST=true
+  VIRTUAL_PREFIXES="lo veth docker br- virbr tailscale wt bond dummy tunl sit vxlan flannel cni lxc"
+
+  for IFACE_PATH in /sys/class/net/* ; do
+    IFACE_NAME=$(basename "$IFACE_PATH")
+
+    # Skip virtual interface prefixes
+    SKIP=false
+    for PREFIX in $VIRTUAL_PREFIXES ; do
+      case "$IFACE_NAME" in
+        ${PREFIX}*)
+          SKIP=true
+          break
+        ;;
+      esac
+    done
+    [ "$SKIP" = "true" ] && continue
+
+    # Check if physical device (has /device symlink)
+    if [ ! -e "$IFACE_PATH/device" ] ; then
+      # Fallback: check type (1 = Ethernet)
+      [ -f "$IFACE_PATH/type" ] || continue
+      IFACE_TYPE=$(cat "$IFACE_PATH/type" 2>/dev/null)
+      [ "$IFACE_TYPE" = "1" ] || continue
+    fi
+
+    # Read MAC address
+    [ -f "$IFACE_PATH/address" ] || continue
+    IFACE_MAC=$(cat "$IFACE_PATH/address" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    [ -z "$IFACE_MAC" ] && continue
+    [ "$IFACE_MAC" = "00:00:00:00:00:00" ] && continue
+
+    if [ "$FIRST" = "true" ] ; then
+      FIRST=false
+    else
+      DETECTED="${DETECTED},"
+    fi
+    DETECTED="${DETECTED}{\"name\":\"${IFACE_NAME}\",\"mac\":\"${IFACE_MAC}\"}"
+  done
+
+  DETECTED="${DETECTED}]"
+  echo "$DETECTED"
+}
+
+# MOS custom: Reconcile detected interfaces with network.json config
+# Matches by MAC address, updates kernel names, marks orphans, adds new interfaces
+reconcile_interfaces() {
+  [ -f "$NETWORK_JSON" ] || return 0
+
+  DETECTED_JSON=$(detect_interfaces)
+  DETECTED_COUNT=$(echo "$DETECTED_JSON" | jq 'length')
+  [ "$DETECTED_COUNT" -eq 0 ] && return 0
+
+  CHANGED=false
+
+  # Legacy entries (no mac field) — assign MAC by kernel name
+  IFACE_COUNT=$(jq '.interfaces | length' "$NETWORK_JSON")
+  IDX=0
+  while [ "$IDX" -lt "$IFACE_COUNT" ] ; do
+    IFACE_MAC=$(jq -r ".interfaces[$IDX].mac // empty" "$NETWORK_JSON")
+    IFACE_TYPE=$(jq -r ".interfaces[$IDX].type" "$NETWORK_JSON")
+    IFACE_NAME=$(jq -r ".interfaces[$IDX].name" "$NETWORK_JSON")
+
+    if [ -z "$IFACE_MAC" ] && [ "$IFACE_TYPE" != "bridge" ] && [ "$IFACE_TYPE" != "bond" ] ; then
+      # Find detected interface by name
+      FOUND_MAC=$(echo "$DETECTED_JSON" | jq -r --arg n "$IFACE_NAME" '.[] | select(.name==$n) | .mac')
+      if [ -n "$FOUND_MAC" ] ; then
+        # Assign MAC to legacy entry
+        jq --argjson idx "$IDX" --arg mac "$FOUND_MAC" '.interfaces[$idx].mac = $mac' "$NETWORK_JSON" > "${NETWORK_JSON}.tmp" && mv "${NETWORK_JSON}.tmp" "$NETWORK_JSON"
+        CHANGED=true
+        log_progress_msg "Assigned MAC $FOUND_MAC to $IFACE_NAME"
+      fi
+    fi
+    IDX=$((IDX + 1))
+  done
+
+  # Match configured interfaces against detected by MAC Address
+  IFACE_COUNT=$(jq '.interfaces | length' "$NETWORK_JSON")
+  CONFIGURED_MACS=""
+  IDX=0
+  while [ "$IDX" -lt "$IFACE_COUNT" ] ; do
+    IFACE_MAC=$(jq -r ".interfaces[$IDX].mac // empty" "$NETWORK_JSON")
+    IFACE_TYPE=$(jq -r ".interfaces[$IDX].type" "$NETWORK_JSON")
+    IFACE_NAME=$(jq -r ".interfaces[$IDX].name" "$NETWORK_JSON")
+    IFACE_STATUS=$(jq -r ".interfaces[$IDX].status // \"enabled\"" "$NETWORK_JSON")
+
+    if [ "$IFACE_TYPE" = "bridge" ] || [ "$IFACE_TYPE" = "bond" ] ; then
+      IDX=$((IDX + 1))
+      continue
+    fi
+
+    if [ -n "$IFACE_MAC" ] ; then
+      CONFIGURED_MACS="${CONFIGURED_MACS} ${IFACE_MAC}"
+
+      # Check if MAC exists in detected interfaces
+      DETECTED_NAME=$(echo "$DETECTED_JSON" | jq -r --arg m "$IFACE_MAC" '.[] | select(.mac==$m) | .name')
+
+      if [ -n "$DETECTED_NAME" ] ; then
+        # MAC Address found update kernel name if changed
+        if [ "$IFACE_NAME" != "$DETECTED_NAME" ] ; then
+          jq --argjson idx "$IDX" --arg name "$DETECTED_NAME" '.interfaces[$idx].name = $name' "$NETWORK_JSON" > "${NETWORK_JSON}.tmp" && mv "${NETWORK_JSON}.tmp" "$NETWORK_JSON"
+          CHANGED=true
+          log_progress_msg "Updated $IFACE_MAC: $IFACE_NAME -> $DETECTED_NAME"
+        fi
+        # Ensure status is enabled
+        if [ "$IFACE_STATUS" = "orphan" ] ; then
+          jq --argjson idx "$IDX" '.interfaces[$idx].status = "enabled"' "$NETWORK_JSON" > "${NETWORK_JSON}.tmp" && mv "${NETWORK_JSON}.tmp" "$NETWORK_JSON"
+          CHANGED=true
+          log_progress_msg "Reactivated $IFACE_MAC ($DETECTED_NAME)"
+        fi
+      else
+        # MAC Adress not in system mark as orphan
+        if [ "$IFACE_STATUS" != "orphan" ] && [ "$IFACE_STATUS" != "disabled" ] ; then
+          jq --argjson idx "$IDX" '.interfaces[$idx].status = "orphan"' "$NETWORK_JSON" > "${NETWORK_JSON}.tmp" && mv "${NETWORK_JSON}.tmp" "$NETWORK_JSON"
+          CHANGED=true
+          log_progress_msg "Orphaned $IFACE_NAME ($IFACE_MAC)"
+        fi
+      fi
+    fi
+    IDX=$((IDX + 1))
+  done
+
+  # Add newly detected interfaces not in config
+  DIDX=0
+  while [ "$DIDX" -lt "$DETECTED_COUNT" ] ; do
+    DET_MAC=$(echo "$DETECTED_JSON" | jq -r ".[$DIDX].mac")
+    DET_NAME=$(echo "$DETECTED_JSON" | jq -r ".[$DIDX].name")
+
+    IS_CONFIGURED=false
+    for CMAC in $CONFIGURED_MACS ; do
+      if [ "$CMAC" = "$DET_MAC" ] ; then
+        IS_CONFIGURED=true
+        break
+      fi
+    done
+
+    if [ "$IS_CONFIGURED" = "false" ] ; then
+      # Add new interface with DHCP
+      NEW_IFACE="{\"mac\":\"${DET_MAC}\",\"name\":\"${DET_NAME}\",\"label\":null,\"type\":\"ethernet\",\"mode\":null,\"interfaces\":[],\"ipv4\":[{\"dhcp\":true}],\"ipv6\":[],\"vlans\":[],\"mtu\":null,\"hw_addr\":null,\"status\":\"enabled\"}"
+      jq --argjson iface "$NEW_IFACE" '.interfaces += [$iface]' "$NETWORK_JSON" > "${NETWORK_JSON}.tmp" && mv "${NETWORK_JSON}.tmp" "$NETWORK_JSON"
+      CHANGED=true
+      log_progress_msg "Added new interface $DET_NAME ($DET_MAC)"
+    fi
+    DIDX=$((DIDX + 1))
+  done
+
+  [ "$CHANGED" = "true" ] && log_progress_msg "Interface reconciliation complete"
+}
+
+# MOS custom: Generate /etc/network/interfaces from network.json
 configure_interfaces() {
-  INTERFACES_JSON=$(jq '.interfaces' /boot/config/network.json)
-  INTERFACES=$(echo $INTERFACES_JSON | jq -r '.[] | .name')
+  [ -f "$NETWORK_JSON" ] || return 0
+
+  INTERFACES_JSON=$(jq '.interfaces' "$NETWORK_JSON")
+  INTERFACE_CFG=""
+  INTERFACE_ADDITIONAL=""
 
   # Enable IPv4 forwarding
   sysctl -wq net.ipv4.ip_forward=1
 
   # Enable or Disable IPv6 globally
-  IPV6=$(echo $INTERFACES_JSON | jq -r 'map(select((.type != "bridged") and (.ipv6 | length > 0))) | length > 0')
+  IPV6=$(echo "$INTERFACES_JSON" | jq -r 'map(select((.type != "bridged") and (.ipv6 | length > 0))) | length > 0')
   if [ "${IPV6}" = "false" ] ; then
     disable_ipv6
   else
     enable_ipv6
   fi
 
-  for INTERFACE in $INTERFACES
-  do
-    INTERFACE=$(echo "$INTERFACE" | xargs)
-    INTERFACE_JSON=$(echo "$INTERFACES_JSON" | jq --arg interface_name "$INTERFACE" '.[] | select(.name==$interface_name)')
+  IFACE_COUNT=$(echo "$INTERFACES_JSON" | jq 'length')
+  IDX=0
+  while [ "$IDX" -lt "$IFACE_COUNT" ] ; do
+    INTERFACE_JSON=$(echo "$INTERFACES_JSON" | jq ".[$IDX]")
+    INTERFACE=$(echo "$INTERFACE_JSON" | jq -r '.name')
     TYPE=$(echo "$INTERFACE_JSON" | jq -r '.type')
-    if [ "$TYPE" = "bridged" ] ; then
+    STATUS=$(echo "$INTERFACE_JSON" | jq -r '.status // "enabled"')
+    MTU=$(echo "$INTERFACE_JSON" | jq -r '.mtu // empty')
+    HW_ADDR=$(echo "$INTERFACE_JSON" | jq -r '.hw_addr // empty')
+
+    # Skip orphan and disabled interfaces
+    if [ "$STATUS" = "orphan" ] || [ "$STATUS" = "disabled" ] ; then
+      IDX=$((IDX + 1))
       continue
     fi
-    DHCP=$(echo "$INTERFACE_JSON" | jq -r '.ipv4[].dhcp')
-    if [ "$DHCP" != "false" ] ; then
-      interface_config "auto $INTERFACE"
-      interface_config "iface $INTERFACE inet dhcp"
-      if [ "$TYPE" = "bridge" ] ; then
-        bridge_setup "$INTERFACE"
-        BRIDGE_INTERFACES=$(echo "$INTERFACE_JSON" | jq -r '.interfaces | join(" ")')
-        if [ "$BRIDGE_INTERFACES" != "null" ] ; then
-          interface_config "    bridge_ports $BRIDGE_INTERFACES"
-          bridge_add_interface "$INTERFACE" "$BRIDGE_INTERFACES"
-        fi
-      elif [ "$TYPE" = "bond" ] ; then
-        BOND_INTERFACES=$(echo "$INTERFACE_JSON" | jq -r '.interfaces | join(" ")')
-        BOND_MODE=$(echo "$INTERFACE_JSON" | jq -r '.mode')
-        [ "$BOND_INTERFACES" != "null" ] \
-          && interface_config "    bond-slaves $BOND_INTERFACES"
-        [ "$BOND_MODE" != "null" ] \
-          && interface_config "    bond-mode $BOND_MODE"
-        interface_config "    bond-miimon 100"
-      fi
-      interface_config ""
-    else
-      ADDRESS=$(echo "$INTERFACE_JSON" | jq -r '.ipv4[].address')
-      GATEWAY=$(echo "$INTERFACE_JSON" | jq -r '.ipv4[].gateway')
-      DNS=$(echo "$INTERFACE_JSON" | jq -r '.ipv4[].dns | join(" ")')
-      if [ "$TYPE" = "bond" ] ; then
-        MODE=$(echo "$INTERFACE_JSON" | jq -r '.mode')
-      fi
-      interface_config "auto $INTERFACE"
-      interface_config "iface $INTERFACE inet static"
-      [ "$ADDRESS" != "null" ] \
-        && interface_config "    address $ADDRESS"
-      [ "$GATEWAY" != "null" ] \
-        && interface_config "    gateway $GATEWAY"
-      [ "$DNS" != "null" ] \
-        && interface_config "    dns-nameservers $DNS"
-      if [ "$TYPE" = "bridge" ] ; then
-        bridge_setup "$INTERFACE"
-        BRIDGE_INTERFACES=$(echo "$INTERFACE_JSON" | jq -r '.interfaces | join(" ")')
-        if [ "$BRIDGE_INTERFACES" != "null" ] ; then
-          interface_config "    bridge_ports $BRIDGE_INTERFACES"
-          bridge_add_interface "$INTERFACE" "$BRIDGE_INTERFACES"
-        fi
-      elif [ "$TYPE" = "bond" ] ; then
-        BOND_INTERFACES=$(echo "$INTERFACE_JSON" | jq -r '.interfaces | join(" ")')
-        BOND_MODE=$(echo "$INTERFACE_JSON" | jq -r '.mode')
-      [ "$BOND_INTERFACES" != "null" ] \
-        && interface_config "    bond-slaves $BOND_INTERFACES"
-      [ "$BOND_MODE" != "null" ] \
-        && interface_config "    bond-mode $BOND_MODE"
-      fi
-      interface_config ""
+
+    # Skip bridged interfaces (they are configured as manual by bridge_add_interface)
+    if [ "$TYPE" = "bridged" ] ; then
+      IDX=$((IDX + 1))
+      continue
     fi
 
-    unset INTERFACE_JSON BRIDGE_INTERFACES BOND_INTERFACES BOND_MODE TYPE DHCP ADDRESS GATEWAY DNS MODE
+    IPV4_COUNT=$(echo "$INTERFACE_JSON" | jq '.ipv4 // [] | length')
+
+    if [ "$IPV4_COUNT" -eq 0 ] ; then
+      # No IP config — manual mode (e.g. for LXC passthrough)
+      interface_config "auto $INTERFACE"
+      interface_config "iface $INTERFACE inet manual"
+    else
+      DHCP=$(echo "$INTERFACE_JSON" | jq -r 'if .ipv4[0].dhcp == false then "false" else "true" end')
+      if [ "$DHCP" != "false" ] ; then
+        interface_config "auto $INTERFACE"
+        interface_config "iface $INTERFACE inet dhcp"
+      else
+        ADDRESS=$(echo "$INTERFACE_JSON" | jq -r '.ipv4[0].address // empty')
+        GATEWAY=$(echo "$INTERFACE_JSON" | jq -r '.ipv4[0].gateway // empty')
+        DNS=$(echo "$INTERFACE_JSON" | jq -r '.ipv4[0].dns // [] | join(" ")')
+        interface_config "auto $INTERFACE"
+        interface_config "iface $INTERFACE inet static"
+        [ -n "$ADDRESS" ] && interface_config "    address $ADDRESS"
+        [ -n "$GATEWAY" ] && interface_config "    gateway $GATEWAY"
+        [ -n "$DNS" ] && interface_config "    dns-nameservers $DNS"
+      fi
+    fi
+
+    # MTU
+    [ -n "$MTU" ] && interface_config "    mtu $MTU"
+
+    # MAC spoofing (hw_addr)
+    [ -n "$HW_ADDR" ] && interface_config "    hwaddress ether $HW_ADDR"
+
+    # Bridge configuration
+    if [ "$TYPE" = "bridge" ] ; then
+      bridge_setup "$INTERFACE"
+      BRIDGE_INTERFACES=$(echo "$INTERFACE_JSON" | jq -r '.interfaces // [] | join(" ")')
+      if [ -n "$BRIDGE_INTERFACES" ] && [ "$BRIDGE_INTERFACES" != "" ] ; then
+        interface_config "    bridge_ports $BRIDGE_INTERFACES"
+        bridge_add_interface "$INTERFACE" "$BRIDGE_INTERFACES"
+      fi
+
+      # VLAN filtering on bridge (for VLAN-aware bridge, e.g. LXC VLAN passthrough)
+      VLAN_FILTERING=$(echo "$INTERFACE_JSON" | jq -r '.vlan_filtering // false')
+      if [ "$VLAN_FILTERING" = "true" ] ; then
+        interface_config "    bridge_vlan_aware yes"
+        BRIDGE_VIDS=$(echo "$INTERFACE_JSON" | jq -r '.bridge_vids // [] | if length > 0 then map(tostring) | join(" ") else empty end')
+        if [ -n "$BRIDGE_VIDS" ] ; then
+          interface_config "    bridge_vids $BRIDGE_VIDS"
+        else
+          interface_config "    bridge_vids 2-4094"
+        fi
+      fi
+    fi
+
+    # Bond configuration
+    if [ "$TYPE" = "bond" ] ; then
+      BOND_INTERFACES=$(echo "$INTERFACE_JSON" | jq -r '.interfaces // [] | join(" ")')
+      BOND_MODE=$(echo "$INTERFACE_JSON" | jq -r '.mode // empty')
+      [ -n "$BOND_INTERFACES" ] && interface_config "    bond-slaves $BOND_INTERFACES"
+      [ -n "$BOND_MODE" ] && interface_config "    bond-mode $BOND_MODE"
+      interface_config "    bond-miimon 100"
+
+      # Add bond slave interfaces as manual
+      for SLAVE in $BOND_INTERFACES ; do
+        if [ -z "$INTERFACE_ADDITIONAL" ] ; then
+          INTERFACE_ADDITIONAL="auto $SLAVE\niface $SLAVE inet manual\n    bond-master $INTERFACE\n"
+        else
+          INTERFACE_ADDITIONAL="${INTERFACE_ADDITIONAL}"'\n'"auto $SLAVE\niface $SLAVE inet manual\n    bond-master $INTERFACE\n"
+        fi
+      done
+    fi
+
+    interface_config ""
+
+    # VLAN configuration
+    VLAN_COUNT=$(echo "$INTERFACE_JSON" | jq '.vlans // [] | length')
+    VIDX=0
+    while [ "$VIDX" -lt "$VLAN_COUNT" ] ; do
+      VLAN_JSON=$(echo "$INTERFACE_JSON" | jq ".vlans[$VIDX]")
+      VLAN_ID=$(echo "$VLAN_JSON" | jq -r '.vlan_id')
+      VLAN_MTU=$(echo "$VLAN_JSON" | jq -r '.mtu // empty')
+      VLAN_IPV4_COUNT=$(echo "$VLAN_JSON" | jq '.ipv4 // [] | length')
+      VLAN_IFACE="${INTERFACE}.${VLAN_ID}"
+
+      if [ "$VLAN_IPV4_COUNT" -eq 0 ] ; then
+        # No IP config — manual mode (e.g. for LXC passthrough)
+        interface_config "auto $VLAN_IFACE"
+        interface_config "iface $VLAN_IFACE inet manual"
+      else
+        VLAN_DHCP=$(echo "$VLAN_JSON" | jq -r 'if .ipv4[0].dhcp == false then "false" else "true" end')
+        if [ "$VLAN_DHCP" != "false" ] ; then
+          interface_config "auto $VLAN_IFACE"
+          interface_config "iface $VLAN_IFACE inet dhcp"
+        else
+          VLAN_ADDRESS=$(echo "$VLAN_JSON" | jq -r '.ipv4[0].address // empty')
+          VLAN_GATEWAY=$(echo "$VLAN_JSON" | jq -r '.ipv4[0].gateway // empty')
+          VLAN_DNS=$(echo "$VLAN_JSON" | jq -r '.ipv4[0].dns // [] | join(" ")')
+          interface_config "auto $VLAN_IFACE"
+          interface_config "iface $VLAN_IFACE inet static"
+          [ -n "$VLAN_ADDRESS" ] && interface_config "    address $VLAN_ADDRESS"
+          [ -n "$VLAN_GATEWAY" ] && interface_config "    gateway $VLAN_GATEWAY"
+          [ -n "$VLAN_DNS" ] && interface_config "    dns-nameservers $VLAN_DNS"
+        fi
+      fi
+
+      interface_config "    vlan-raw-device $INTERFACE"
+      [ -n "$VLAN_MTU" ] && interface_config "    mtu $VLAN_MTU"
+      interface_config ""
+
+      VIDX=$((VIDX + 1))
+    done
+
+    IDX=$((IDX + 1))
   done
   echo -e "$INTERFACE_ADDITIONAL$INTERFACE_CFG" > /etc/network/interfaces
 }
@@ -249,6 +476,7 @@ configure_interfaces() {
 case "$1" in
   start)
     # MOS custom:
+    reconcile_interfaces
     configure_interfaces
     process_options
     check_ifstate
@@ -292,6 +520,7 @@ case "$1" in
     ifdown -a --exclude=lo $verbose || true
 
     # MOS custom:
+    reconcile_interfaces
     configure_interfaces
     process_options
     check_ifstate
@@ -311,6 +540,7 @@ case "$1" in
     ifdown -a --exclude=lo $verbose || true
 
     # MOS custom:
+    reconcile_interfaces
     configure_interfaces
     process_options
     check_ifstate
