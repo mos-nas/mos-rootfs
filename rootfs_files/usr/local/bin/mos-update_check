@@ -22,7 +22,7 @@ CUR_V="${VERSION}-${CHANNEL}"
 if [ "$(cat /var/mos/mos_update_check 2>/dev/null)" != "$AVAIL_V" ] ; then
   # Send notification and make sure to write /var/mos/mos_update_check to avoid duplicate messages
   if [ "$CUR_V" != "$AVAIL_V" ] ; then
-    notify -t "MOS Update" -m "Newer MOS version: $AVAIL_V found!"
+    notify -t "MOS Update" -m "New MOS version: $AVAIL_V found!"
     echo "$AVAIL_V" > /var/mos/mos_update_check
   fi
 fi
