@@ -353,8 +353,8 @@ configure_interfaces() {
       continue
     fi
 
-    # Skip bridged interfaces (they are configured as manual by bridge_add_interface)
-    if [ "$TYPE" = "bridged" ] ; then
+    # Skip bridged/bonded interfaces (they are configured by bridge/bond sections)
+    if [ "$TYPE" = "bridged" ] || [ "$TYPE" = "bonded" ] ; then
       IDX=$((IDX + 1))
       continue
     fi
@@ -407,6 +407,19 @@ configure_interfaces() {
         else
           interface_config "    bridge_vids 2-4094"
         fi
+        # Ensure VLAN filtering is enabled (fallback for ifupdown v1 which ignores bridge_vlan_aware)
+        interface_config "    post-up ip link set $INTERFACE type bridge vlan_filtering 1 || true"
+        # Add VLANs from bridged member interfaces as bridge port VIDs
+        for MEMBER in $BRIDGE_INTERFACES ; do
+          MEMBER_JSON=$(echo "$INTERFACES_JSON" | jq --arg name "$MEMBER" '.[] | select(.name == $name)')
+          MEMBER_VLAN_COUNT=$(echo "$MEMBER_JSON" | jq '.vlans // [] | length')
+          MIDX=0
+          while [ "$MIDX" -lt "$MEMBER_VLAN_COUNT" ] ; do
+            VID=$(echo "$MEMBER_JSON" | jq -r ".vlans[$MIDX].vlan_id")
+            interface_config "    post-up bridge vlan add vid $VID dev $MEMBER || true"
+            MIDX=$((MIDX + 1))
+          done
+        done
       fi
     fi
 
@@ -535,7 +548,7 @@ case "$1" in
   force-reload|restart)
     process_options
 
-    log_warning_msg "Running $0 $1 is deprecated because it may not re-enable some interfaces"
+    log_warning_msg "Manual network restart is not recommended. Please use the MOS WebUI to configure networking."
     log_action_begin_msg "Reconfiguring network interfaces"
     ifdown -a --exclude=lo $verbose || true
 
