@@ -76,7 +76,7 @@ generate_shares() {
 
         # Append share configuration to the config file
         cat >> "$SHARES_CONFIG" << EOF
-# Automatically generated MountainOS Share-Configuration for $share_name
+# Automatically generated MOS Share-Configuration for $share_name
 [$share_name]
    comment = $comment
    path = $path
