@@ -93,7 +93,15 @@ jobs:
             fi
           fi
         }
-      
+
+        # Get Architecture
+        ARCHITECTURE=$(uname -m)
+        if [ "$ARCHITECTURE" == "x86_64" ] ; then
+          DEB_ARCH="amd64"
+        elif [ "$ARCHITECTURE" == "aarch64" ] ; then
+          DEB_ARCH="arm64"
+        fi
+
         # Get Docker Releases
         DOCKER_JSON=$(curl -s --request GET \
             --url "https://api.github.com/repos/ich777/mos-moby/releases?per_page=50" \
@@ -108,8 +116,8 @@ jobs:
         fi
 
         # Get Asset IDs
-        DOCKER_DEB=$(echo $DOCKER_JSON | jq --arg version v${DOCKER_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-docker") and endswith(".deb")) | .id')
-        DOCKER_DEB_MD5=$(echo $DOCKER_JSON | jq --arg version v${DOCKER_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-docker") and endswith(".deb.md5")) | .id')
+        DOCKER_DEB=$(echo $DOCKER_JSON | jq --arg version v${DOCKER_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-docker") and endswith($arch + ".deb")) | .id')
+        DOCKER_DEB_MD5=$(echo $DOCKER_JSON | jq --arg version v${DOCKER_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-docker") and endswith($arch + ".deb.md5")) | .id')
 
         # Get LXC Releases
         LXC_JSON=$(curl -s --request GET \
@@ -125,8 +133,8 @@ jobs:
         fi
 
         # Get Asset IDs
-        LXC_DEB=$(echo $LXC_JSON | jq --arg version v${LXC_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-lxc") and endswith(".deb")) | .id')
-        LXC_DEB_MD5=$(echo $LXC_JSON | jq --arg version v${LXC_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-lxc") and endswith(".deb.md5")) | .id')
+        LXC_DEB=$(echo $LXC_JSON | jq --arg version v${LXC_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-lxc") and endswith($arch + ".deb")) | .id')
+        LXC_DEB_MD5=$(echo $LXC_JSON | jq --arg version v${LXC_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-lxc") and endswith($arch + ".deb.md5")) | .id')
 
         # Get QEMU Releases
         QEMU_JSON=$(curl -s --request GET \
@@ -142,8 +150,8 @@ jobs:
         fi
 
         # Get Asset IDs
-        QEMU_DEB=$(echo $QEMU_JSON | jq --arg version v${QEMU_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-qemu") and endswith(".deb")) | .id')
-        QEMU_DEB_MD5=$(echo $QEMU_JSON | jq --arg version v${QEMU_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-qemu") and endswith(".deb.md5")) | .id')
+        QEMU_DEB=$(echo $QEMU_JSON | jq --arg version v${QEMU_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-qemu") and endswith($arch + ".deb")) | .id')
+        QEMU_DEB_MD5=$(echo $QEMU_JSON | jq --arg version v${QEMU_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-qemu") and endswith($arch + ".deb.md5")) | .id')
 
         # Get SnapRAID Releases
         SNAPRAID_JSON=$(curl -s --request GET \
@@ -159,8 +167,8 @@ jobs:
         fi
 
         # Get Asset IDs
-        SNAPRAID_DEB=$(echo $SNAPRAID_JSON | jq --arg version v${SNAPRAID_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-snapraid") and endswith(".deb")) | .id')
-        SNAPRAID_DEB_MD5=$(echo $SNAPRAID_JSON | jq --arg version v${SNAPRAID_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-snapraid") and endswith(".deb.md5")) | .id')
+        SNAPRAID_DEB=$(echo $SNAPRAID_JSON | jq --arg version v${SNAPRAID_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-snapraid") and endswith($arch + ".deb")) | .id')
+        SNAPRAID_DEB_MD5=$(echo $SNAPRAID_JSON | jq --arg version v${SNAPRAID_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-snapraid") and endswith($arch + ".deb.md5")) | .id')
 
         # Get MergerFS Releases
         MERGERFS_JSON=$(curl -s --request GET \
@@ -176,8 +184,8 @@ jobs:
         fi
 
         # Get Asset IDs
-        MERGERFS_DEB=$(echo $MERGERFS_JSON | jq --arg version v${MERGERFS_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-mergerfs") and endswith(".deb")) | .id')
-        MERGERFS_DEB_MD5=$(echo $MERGERFS_JSON | jq --arg version v${MERGERFS_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-mergerfs") and endswith(".deb.md5")) | .id')
+        MERGERFS_DEB=$(echo $MERGERFS_JSON | jq --arg version v${MERGERFS_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-mergerfs") and endswith($arch + ".deb")) | .id')
+        MERGERFS_DEB_MD5=$(echo $MERGERFS_JSON | jq --arg version v${MERGERFS_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-mergerfs") and endswith($arch + ".deb.md5")) | .id')
 
         # Get image-sha Releases
         IMAGESHA_JSON=$(curl -s --request GET \
@@ -189,8 +197,8 @@ jobs:
         IMAGESHA_VERSION=$(echo $IMAGESHA_JSON | jq -r '.[].tag_name' | sort -V | tail -1)
 
         # Get Asset IDs
-        IMAGESHA_DEB=$(echo $IMAGESHA_JSON | jq --arg version v${IMAGESHA_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-image-sha") and endswith(".deb")) | .id')
-        IMAGESHA_DEB_MD5=$(echo $IMAGESHA_JSON | jq --arg version v${IMAGESHA_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-image-sha") and endswith(".deb.md5")) | .id')
+        IMAGESHA_DEB=$(echo $IMAGESHA_JSON | jq --arg version v${IMAGESHA_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-image-sha") and endswith($arch + ".deb")) | .id')
+        IMAGESHA_DEB_MD5=$(echo $IMAGESHA_JSON | jq --arg version v${IMAGESHA_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-image-sha") and endswith($arch + ".deb.md5")) | .id')
 
         # Get image-sha Releases
         NOTIFY_JSON=$(curl -s --request GET \
@@ -202,8 +210,8 @@ jobs:
         NOTIFY_VERSION=$(echo $NOTIFY_JSON | jq -r '.[].tag_name' | sort -V | tail -1)
 
         # Get Asset IDs
-        NOTIFY_DEB=$(echo $NOTIFY_JSON | jq --arg version v${NOTIFY_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-notify") and endswith(".deb")) | .id')
-        NOTIFY_DEB_MD5=$(echo $NOTIFY_JSON | jq --arg version v${NOTIFY_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-notify") and endswith(".deb.md5")) | .id')
+        NOTIFY_DEB=$(echo $NOTIFY_JSON | jq --arg version v${NOTIFY_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-notify") and endswith($arch + ".deb")) | .id')
+        NOTIFY_DEB_MD5=$(echo $NOTIFY_JSON | jq --arg version v${NOTIFY_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-notify") and endswith($arch + ".deb.md5")) | .id')
 
         # Get docker-watchdog Releases
         DOCKERWD_JSON=$(curl -s --request GET \
@@ -215,8 +223,8 @@ jobs:
         DOCKERWD_VERSION=$(echo $DOCKERWD_JSON | jq -r '.[].tag_name' | sort -V | tail -1)
 
         # Get Asset IDs
-        DOCKERWD_DEB=$(echo $DOCKERWD_JSON | jq --arg version v${DOCKERWD_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-docker-watchdog") and endswith(".deb")) | .id')
-        DOCKERWD_DEB_MD5=$(echo $DOCKERWD_JSON | jq --arg version v${DOCKERWD_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-docker-watchdog") and endswith(".deb.md5")) | .id')
+        DOCKERWD_DEB=$(echo $DOCKERWD_JSON | jq --arg version v${DOCKERWD_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-docker-watchdog") and endswith($arch + ".deb")) | .id')
+        DOCKERWD_DEB_MD5=$(echo $DOCKERWD_JSON | jq --arg version v${DOCKERWD_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-docker-watchdog") and endswith($arch + ".deb.md5")) | .id')
 
         # Get docker-watchdog Releases
         WSDDN_JSON=$(curl -s --request GET \
@@ -228,8 +236,8 @@ jobs:
         WSDDN_VERSION=$(echo $WSDDN_JSON | jq -r '.[].tag_name' | sort -V | tail -1)
 
         # Get Asset IDs
-        WSDDN_DEB=$(echo $WSDDN_JSON | jq --arg version v${WSDDN_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-wsdd-native") and endswith(".deb")) | .id')
-        WSDDN_DEB_MD5=$(echo $WSDDN_JSON | jq --arg version v${WSDDN_VERSION#v} -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-wsdd-native") and endswith(".deb.md5")) | .id')
+        WSDDN_DEB=$(echo $WSDDN_JSON | jq --arg version v${WSDDN_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-wsdd-native") and endswith($arch + ".deb")) | .id')
+        WSDDN_DEB_MD5=$(echo $WSDDN_JSON | jq --arg version v${WSDDN_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-wsdd-native") and endswith($arch + ".deb.md5")) | .id')
 
         # Download applications
         application_download "docker" "${DOCKER_VERSION#v}" "$DOCKER_DEB"
