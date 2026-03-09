@@ -121,7 +121,7 @@ if [ -f /boot/optional/scripts/boot.sh ] ; then
 fi
 
 # Create directories
-/bin/mkdir -p /lib/firmware /lib/modules /var/overlay/lower/drivers
+/bin/mkdir -p /usr/lib/firmware /usr/lib/modules /var/overlay/lower/drivers
 for dir in upper work; do
   for subdir in firmware modules; do
     /bin/mkdir -p /var/overlay/$dir/$subdir
@@ -133,8 +133,8 @@ done
 /bin/mount -t squashfs -o loop /boot/drivers /var/overlay/lower/drivers
 
 # Mount overlay directories
-/bin/mount -t overlay overlay -o lowerdir=/var/overlay/lower/drivers/firmware,upperdir=/var/overlay/upper/firmware,workdir=/var/overlay/work/firmware /lib/firmware
-/bin/mount -t overlay overlay -o lowerdir=/var/overlay/lower/drivers/modules,upperdir=/var/overlay/upper/modules,workdir=/var/overlay/work/modules /lib/modules
+/bin/mount -t overlay overlay -o lowerdir=/var/overlay/lower/drivers/firmware,upperdir=/var/overlay/upper/firmware,workdir=/var/overlay/work/firmware /usr/lib/firmware
+/bin/mount -t overlay overlay -o lowerdir=/var/overlay/lower/drivers/modules,upperdir=/var/overlay/upper/modules,workdir=/var/overlay/work/modules /usr/lib/modules
 
 # Copy over modprobe.d files if found
 MODPROBED_FILES="$(/bin/ls -1 /boot/optional/modprobe.d/* 2>/dev/null)"
