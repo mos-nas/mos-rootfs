@@ -15,6 +15,13 @@ else
   HEADER=()
 fi
 
+# Set Architecture
+if [ "$(get_arch)" == "amd64" ] ; then
+  ARCHITECTURE=""
+elif [ "$(get_arch)" == "arm64" ] ; then
+  ARCHITECTURE="_arm64"
+fi
+
 # Rollback to previous version
 rollback_mos() {
   # Get rollback version
@@ -138,18 +145,20 @@ if [ "$3" = "update_kernel" ] ; then
     if [ "$RUNNING_KERNEL" != $KERNEL ] ; then
       notify -t "MOS Update" -m "Upgrading Kernel to new recommended Kernel: $KERNEL" -p "normal"
       # Get assed ID's for image/drivers and md5's
-      ASSET_KERNEL=$(jq --arg kernel $KERNEL -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "image") | .id' /var/mos/mos-update/$KERNEL.json)
-      ASSET_DRIVERS=$(jq --arg kernel $KERNEL -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "drivers") | .id' /var/mos/mos-update/$KERNEL.json)
-      ASSET_KERNEL_MD5=$(jq --arg kernel $KERNEL -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "image.md5") | .id' /var/mos/mos-update/$KERNEL.json)
-      ASSET_DRIVERS_MD5=$(jq --arg kernel $KERNEL -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "drivers.md5") | .id' /var/mos/mos-update/$KERNEL.json)
+      ASSET_KERNEL=$(jq --arg kernel $KERNEL --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("image" + $arch)) | .id' /var/mos/mos-update/$KERNEL.json)
+      ASSET_DRIVERS=$(jq --arg kernel $KERNEL --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("drivers" + $arch)) | .id' /var/mos/mos-update/$KERNEL.json)
+      ASSET_KERNEL_MD5=$(jq --arg kernel $KERNEL --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("image.md5" + $arch)) | .id' /var/mos/mos-update/$KERNEL.json)
+      ASSET_DRIVERS_MD5=$(jq --arg kernel $KERNEL --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("drivers.md5" + $arch)) | .id' /var/mos/mos-update/$KERNEL.json)
       UPDATE_KERNEL="true"
     else
       notify -t "MOS Update" -m "No Kernel update needed, continuing with upgrade" -p "normal"
     fi
-    # Get assets ID's from microcode and md5
-    ASSET_MICROCODE=$(jq --arg kernel $KERNEL -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "microcode") | .id' /var/mos/mos-update/$KERNEL.json)
-    ASSET_MICROCODE_MD5=$(jq --arg kernel $KERNEL -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "microcode.md5") | .id' /var/mos/mos-update/$KERNEL.json)
-    UPDATE_MICROCODE="true"
+    if [ -z "$ARCHITECTURE" ] ; then
+      # Get assets ID's from microcode and md5
+      ASSET_MICROCODE=$(jq --arg kernel $KERNEL -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "microcode") | .id' /var/mos/mos-update/$KERNEL.json)
+      ASSET_MICROCODE_MD5=$(jq --arg kernel $KERNEL -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "microcode.md5") | .id' /var/mos/mos-update/$KERNEL.json)
+      UPDATE_MICROCODE="true"
+    fi
   fi
 fi
 
@@ -242,31 +251,33 @@ fi
 
 # Download microcode
 if [ "$UPDATE_MICROCODE" = "true" ] ; then
-# Download microcode
-  echo "Downloading microcode"
-  curl --progress-bar -L \
-    "${HEADER[@]}" \
-    --header "Accept: application/octet-stream" \
-    --header "X-GitHub-Api-Version: 2022-11-28" \
-    --output "/var/mos/mos-update/update/microcode" \
-    "https://api.github.com/repos/ich777/mos-kernel/releases/assets/$ASSET_MICROCODE"
-  
-  # Download microcode.md5
-  echo "Downloading microcode.md5"
-  curl -s -L \
-    "${HEADER[@]}" \
-    --header "Accept: application/octet-stream" \
-    --header "X-GitHub-Api-Version: 2022-11-28" \
-    --output "/var/mos/mos-update/update/microcode.md5" \
-    "https://api.github.com/repos/ich777/mos-kernel/releases/assets/$ASSET_MICROCODE_MD5"
-  
-  # Verify checksum
-  echo "Verifying md5 checksum from microcode"
-  if [ "$(md5sum /var/mos/mos-update/update/microcode | awk '{print $1}')" != "$(cat /var/mos/mos-update/update/microcode.md5)" ] ; then
-    notify -t "MOS Update" -m "microcode checksum error, not updating microcode" -p "alert"
-    rm -rf /var/mos/mos-update/update/microcode*
-  else
-    echo "microcode checksum OK"
+  if [ -z "$ARCHITECTURE" ] ; then
+    # Download microcode
+    echo "Downloading microcode"
+    curl --progress-bar -L \
+      "${HEADER[@]}" \
+      --header "Accept: application/octet-stream" \
+      --header "X-GitHub-Api-Version: 2022-11-28" \
+      --output "/var/mos/mos-update/update/microcode" \
+      "https://api.github.com/repos/ich777/mos-kernel/releases/assets/$ASSET_MICROCODE"
+
+    # Download microcode.md5
+    echo "Downloading microcode.md5"
+    curl -s -L \
+      "${HEADER[@]}" \
+      --header "Accept: application/octet-stream" \
+      --header "X-GitHub-Api-Version: 2022-11-28" \
+      --output "/var/mos/mos-update/update/microcode.md5" \
+      "https://api.github.com/repos/ich777/mos-kernel/releases/assets/$ASSET_MICROCODE_MD5"
+
+    # Verify checksum
+    echo "Verifying md5 checksum from microcode"
+    if [ "$(md5sum /var/mos/mos-update/update/microcode | awk '{print $1}')" != "$(cat /var/mos/mos-update/update/microcode.md5)" ] ; then
+      notify -t "MOS Update" -m "microcode checksum error, not updating microcode" -p "alert"
+      rm -rf /var/mos/mos-update/update/microcode*
+    else
+      echo "microcode checksum OK"
+    fi
   fi
 fi
 
@@ -290,8 +301,10 @@ if [ "$CURRENT_VERSION" != "$ROLLBACK_VERSION" ] ; then
     mv /boot/image* /boot/drivers* /boot/rollback/
   fi
   if [ "$UPDATE_MICROCODE" = "true" ] ; then
-    echo "Moving microcode to /boot/rollback"
-    mv /boot/microcode* /boot/rollback/
+    if [ -z "$ARCHITECTURE" ] ; then
+      echo "Moving microcode to /boot/rollback"
+      mv /boot/microcode* /boot/rollback/
+    fi
   fi
 else
   echo "Rollback MOS version already in palce"
@@ -316,7 +329,9 @@ if [ "$UPDATE_KERNEL" = "true" ] ; then
   done
 fi
 if [ "$UPDATE_MICROCODE" = "true" ] ; then
-  mv /var/mos/mos-update/update/microcode* /boot/
+  if [ -z "$ARCHITECTURE" ] ; then
+    mv /var/mos/mos-update/update/microcode* /boot/
+  fi
 fi
 
 notify -t "MOS Update" -m "MOS update done, please reboot" -p "normal"
