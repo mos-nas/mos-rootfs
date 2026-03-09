@@ -32,3 +32,12 @@ try {
     process.exit(1);
 }"
 }
+
+get_arch() {
+  ARCH=$(uname -m)
+  case "$ARCH" in
+    aarch64) echo "arm64" ;;
+    x86_64)  echo "amd64" ;;
+    *) exit 1 ;;
+  esac
+}
