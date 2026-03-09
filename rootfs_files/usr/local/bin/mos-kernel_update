@@ -15,6 +15,13 @@ else
   HEADER=()
 fi
 
+# Set Architecture
+if [ "$(get_arch)" == "amd64" ] ; then
+  ARCHITECTURE=""
+elif [ "$(get_arch)" == "aarch64" ] ; then
+  ARCHITECTURE="_arm64"
+fi
+
 # Rollback to previous version
 rollback_kernel() {
   # Get rollback version
@@ -85,12 +92,14 @@ else
 fi
 
 # Get assets ID's from rootfs and md5
-ASSET_KERNEL=$(jq --arg kernel $VERSION -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "image") | .id' /var/mos/mos-update/kernel/releases.json)
-ASSET_DRIVERS=$(jq --arg kernel $VERSION -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "drivers") | .id' /var/mos/mos-update/kernel/releases.json)
-ASSET_KERNEL_MD5=$(jq --arg kernel $VERSION -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "image.md5") | .id' /var/mos/mos-update/kernel/releases.json)
-ASSET_DRIVERS_MD5=$(jq --arg kernel $VERSION -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "drivers.md5") | .id' /var/mos/mos-update/kernel/releases.json)
-ASSET_MICROCODE=$(jq --arg kernel $VERSION -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "microcode") | .id' /var/mos/mos-update/kernel/releases.json)
-ASSET_MICROCODE_MD5=$(jq --arg kernel $VERSION -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "microcode.md5") | .id' /var/mos/mos-update/kernel/releases.json)
+ASSET_KERNEL=$(jq --arg kernel $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("image" + $arch)) | .id' /var/mos/mos-update/kernel/releases.json)
+ASSET_DRIVERS=$(jq --arg kernel $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("drivers" + $arch)) | .id' /var/mos/mos-update/kernel/releases.json)
+ASSET_KERNEL_MD5=$(jq --arg kernel $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("image.md5" + $arch)) | .id' /var/mos/mos-update/kernel/releases.json)
+ASSET_DRIVERS_MD5=$(jq --arg kernel $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("drivers.md5" + $arch)) | .id' /var/mos/mos-update/kernel/releases.json)
+if [ -z "$ARCHITECTURE" ] ; then
+  ASSET_MICROCODE=$(jq --arg kernel $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "microcode") | .id' /var/mos/mos-update/kernel/releases.json)
+  ASSET_MICROCODE_MD5=$(jq --arg kernel $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "microcode.md5") | .id' /var/mos/mos-update/kernel/releases.json)
+fi
 
 # Download kernel
 echo "Downloading Kernel image"
@@ -149,53 +158,55 @@ if [ "$UPDATE_KERNEL" = "true" ] ; then
   fi
 fi
 
-# Download microcode
-echo "Downloading microcode"
-curl --progress-bar -L \
-  "${HEADER[@]}" \
-  --header "Accept: application/octet-stream" \
-  --header "X-GitHub-Api-Version: 2022-11-28" \
-  --output "/var/mos/mos-update/kernel/update/microcode" \
-  "https://api.github.com/repos/ich777/mos-kernel/releases/assets/$ASSET_MICROCODE"
-  
-# Download microcode.md5
-echo "Downloading microcode.md5"
-curl -s -L \
-  "${HEADER[@]}" \
-  --header "Accept: application/octet-stream" \
-  --header "X-GitHub-Api-Version: 2022-11-28" \
-  --output "/var/mos/mos-update/kernel/update/microcode.md5" \
-  "https://api.github.com/repos/ich777/mos-kernel/releases/assets/$ASSET_MICROCODE_MD5"
-  
-# Verify checksum
-echo "Verifying md5 checksum from microcode"
-if [ "$(md5sum /var/mos/mos-update/kernel/update/microcode | awk '{print $1}')" != "$(cat /var/mos/mos-update/kernel/update/microcode.md5)" ] ; then
-  notify -t "MOS Kernel" -m "microcode checksum error, not updating microcode" -p "alert"
-  rm -rf /var/mos/mos-update/kernel/update/microcode*
-  UPDATE_MICROCODE="false"
-else
-  echo "microcode checksum OK"
-fi
+if [ -z "$ARCHITECTURE" ] ; then
+  # Download microcode
+  echo "Downloading microcode"
+  curl --progress-bar -L \
+    "${HEADER[@]}" \
+    --header "Accept: application/octet-stream" \
+    --header "X-GitHub-Api-Version: 2022-11-28" \
+    --output "/var/mos/mos-update/kernel/update/microcode" \
+    "https://api.github.com/repos/ich777/mos-kernel/releases/assets/$ASSET_MICROCODE"
+    
+  # Download microcode.md5
+  echo "Downloading microcode.md5"
+  curl -s -L \
+    "${HEADER[@]}" \
+    --header "Accept: application/octet-stream" \
+    --header "X-GitHub-Api-Version: 2022-11-28" \
+    --output "/var/mos/mos-update/kernel/update/microcode.md5" \
+    "https://api.github.com/repos/ich777/mos-kernel/releases/assets/$ASSET_MICROCODE_MD5"
 
-# Check if rollback version is the same as installed version
-if [ "$CURRENT_VERSION" != "$VERSION" ] ; then
-  echo "Moving current Kernel version to /boot/rollback/kernel"
-  if [ ! -d /boot/rollback/kernel ] ; then
-    mkdir -p /boot/rollback/kernel >/dev/null 2>&1
+  # Verify checksum
+  echo "Verifying md5 checksum from microcode"
+  if [ "$(md5sum /var/mos/mos-update/kernel/update/microcode | awk '{print $1}')" != "$(cat /var/mos/mos-update/kernel/update/microcode.md5)" ] ; then
+    notify -t "MOS Kernel" -m "microcode checksum error, not updating microcode" -p "alert"
+    rm -rf /var/mos/mos-update/kernel/update/microcode*
+    UPDATE_MICROCODE="false"
   else
-    rm -rf /boot/rollback/kernel/*
+    echo "microcode checksum OK"
   fi
-  echo "{ \"kernel_version\": \"$CURRENT_VERSION\" }" > /boot/rollback/kernel/version.json
 
-  echo "Moving current Kernel files into rollback directory"
-  if [ "$UPDATE_KERNEL" != "false" ] ; then
-    mv /boot/image* /boot/drivers* /boot/rollback/kernel/
+  # Check if rollback version is the same as installed version
+  if [ "$CURRENT_VERSION" != "$VERSION" ] ; then
+    echo "Moving current Kernel version to /boot/rollback/kernel"
+    if [ ! -d /boot/rollback/kernel ] ; then
+      mkdir -p /boot/rollback/kernel >/dev/null 2>&1
+    else
+      rm -rf /boot/rollback/kernel/*
+    fi
+    echo "{ \"kernel_version\": \"$CURRENT_VERSION\" }" > /boot/rollback/kernel/version.json
+
+    echo "Moving current Kernel files into rollback directory"
+    if [ "$UPDATE_KERNEL" != "false" ] ; then
+      mv /boot/image* /boot/drivers* /boot/rollback/kernel/
+    fi
+    if [ "$UPDATE_MICROCODE" != "false" ] ; then
+      mv /boot/microcode* /boot/rollback/kernel/
+    fi
+  else
+    echo "Rollback Kernel version already in palce"
   fi
-  if [ "$UPDATE_MICROCODE" != "false" ] ; then
-    mv /boot/microcode* /boot/rollback/kernel/
-  fi
-else
-  echo "Rollback Kernel version already in palce"
 fi
 
 echo "Moving Kernel files into place, please wait"
