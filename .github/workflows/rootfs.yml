@@ -287,10 +287,33 @@ jobs:
         chown -R root:root $ROOTFS/var/www/
         chmod -R 755 $ROOTFS/var/www/
 
+        # Check node version
+        NODE_V="$(node --version 2>/dev/null)"
+        if [ "${NODE_V#v}" != "${{ github.event.inputs.node_version }}" ] ; then
+          ARCHITECTURE=$(uname -m)
+          if [ "$ARCHITECTURE" == "x86_64" ] ; then
+            NODE_PKG_ARCH="x64"
+          elif [ "$ARCHITECTURE" == "aarch64" ] ; then
+            NODE_PKG_ARCH="arm64"
+          fi
+          cd /tmp
+          if ! wget -O /tmp/node.xz https://nodejs.org/dist/v${{ github.event.inputs.node_version }}/node-v${{ github.event.inputs.node_version }}-linux-${NODE_PKG_ARCH}.tar.xz ; then
+            exit 1
+          fi
+          tar -xf /tmp/node.xz
+          rm -f /tmp/node-*/CHANGE* /tmp/node-*/README*
+          cp -R /tmp/node-*/* /usr/
+          rm -rf /tmp/node-* /tmp/node.xz
+        fi
+
         # Get latest API
         git clone https://oauth2:${{ secrets.GITHUB_TOKEN }}@github.com/ich777/mos-api.git --depth=1 $ROOTFS/usr/local/lib/mos-api
         API_V=$(date -d @"$(git -C $ROOTFS/usr/local/lib/mos-api log -1 --format=%ct)" "+%Y%m%d-%H%M")
-        rm -rf $ROOTFS/usr/local/lib/mos-api/.git
+        rm -rf $ROOTFS/usr/local/lib/mos-api/.git $ROOTFS/usr/local/lib/mos-api/node_modules $ROOTFS/usr/local/lib/mos-api/package-lock.json
+        cd $ROOTFS/usr/local/lib/mos-api
+        npm install
+        mv $ROOTFS/usr/local/lib/mos-api/node_modules $ROOTFS/usr/local/lib/mos-api-node_modules
+        rm -f $ROOTFS/usr/local/lib/mos-api/package-lock.json
         chown -R root:root $ROOTFS/usr/local/lib/mos-api
         chmod -R 755 $ROOTFS/usr/local/lib/mos-api
 
