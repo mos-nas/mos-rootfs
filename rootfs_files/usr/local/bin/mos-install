@@ -143,6 +143,11 @@ udevadm_refresh() {
   udevadm settle
 }
 
+# Umount directories
+umount_directories() {
+  umount /var/mos/installer/boot /var/mos/installer/esp 2>/dev/null
+}
+
 # Define download function
 download_asset() {
   echo "Downloading GRUB${2}"
@@ -243,10 +248,12 @@ if [ "$FS_TYPE" != "vfat" ] ; then
   echo "Mounting Partitions"
   if ! mount ${DISK}${PARTITION}1 /var/mos/installer/esp ; then
     echo "ERROR: Mount from ESP Partition failed"
+    umount_directories
     exit 1
   fi
   if ! mount ${DISK}${PARTITION}2 /var/mos/installer/boot ; then
     echo "ERROR: Mount from boot Partition failed"
+    umount_directories
     exit 1
   fi
 
@@ -307,8 +314,7 @@ fi
 echo "Syncinc Filesystems"
 sync
 echo "Unmounting Parititons"
-umount /var/mos/installer/esp
-umount /var/mos/installer/boot
+umount_directories
 
 echo "Done!"
 echo
