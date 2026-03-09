@@ -145,23 +145,24 @@ interface_config() {
   fi
 }
 
-# MOS custom:
+# MOS custom: Create bridge interface (idempotent — removes and recreates if exists)
 bridge_setup() {
-  if [ ! "$(ifquery --list -a | grep -q $1)" ] ; then
-    brctl addbr $1
+  if ip link show "$1" > /dev/null 2>&1 ; then
+    ip link set "$1" down 2>/dev/null || true
+    brctl delbr "$1" 2>/dev/null || true
   fi
+  brctl addbr "$1"
 }
 
-# MOS custom:
+# MOS custom: Add member interfaces to bridge (ensures interfaces are down first)
 bridge_add_interface() {
   for interface in $2 ; do
-    if [ ! "$(bridge link show master $1 | grep -q $interface)" ] ; then
-      brctl addif $1 $interface
-      if [ -z "$INTERFACE_ADDITIONAL" ] ; then
-        INTERFACE_ADDITIONAL="auto $interface\niface $interface inet manual\n"
-      else
-        INTERFACE_ADDITIONAL="${INTERFACE_ADDITIONAL}"'\n'"auto $interface\niface $interface inet manual\n"
-      fi
+    ip link set "$interface" down 2>/dev/null || true
+    brctl addif "$1" "$interface" 2>/dev/null || true
+    if [ -z "$INTERFACE_ADDITIONAL" ] ; then
+      INTERFACE_ADDITIONAL="auto $interface\niface $interface inet manual\n"
+    else
+      INTERFACE_ADDITIONAL="${INTERFACE_ADDITIONAL}"'\n'"auto $interface\niface $interface inet manual\n"
     fi
   done
 }
@@ -325,6 +326,21 @@ configure_interfaces() {
   INTERFACES_JSON=$(jq '.interfaces' "$NETWORK_JSON")
   INTERFACE_CFG=""
   INTERFACE_ADDITIONAL=""
+
+  # Cleanup: tear down existing MOS-managed bridges and bonds before reconfiguring
+  for BR in $(ls /sys/class/net/*/bridge/bridge_id 2>/dev/null | cut -d/ -f5) ; do
+    case "$BR" in
+      docker*|virbr*|lxcbr*) continue ;;  # skip non-MOS bridges
+    esac
+    ip link set "$BR" down 2>/dev/null || true
+    brctl delbr "$BR" 2>/dev/null || true
+  done
+  if [ -f /sys/class/net/bonding_masters ] ; then
+    for BOND in $(cat /sys/class/net/bonding_masters 2>/dev/null) ; do
+      ip link set "$BOND" down 2>/dev/null || true
+      echo "-$BOND" > /sys/class/net/bonding_masters 2>/dev/null || true
+    done
+  fi
 
   # Enable IPv4 forwarding
   sysctl -wq net.ipv4.ip_forward=1
