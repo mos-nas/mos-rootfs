@@ -1,13 +1,22 @@
 #!/bin/bash
 echo "nameserver 10.0.0.5" > /etc/resolv.conf
 
+ARCHITECTURE="$(uname -m)"
+if [ "$ARCHITECTURE" == "x86_64" ] ; then
+  NODE_PKG_ARCH="x64"
+  ADDITIONAL_PACKAGES=""
+elif [ "$ARCHITECTURE" == "aarch64" ] ; then
+  NODE_PKG_ARCH="arm64"
+  ADDITIONAL_PACKAGES="device-tree-compiler"
+fi
+
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends --no-install-suggests curl wget nano htop util-linux e2fsprogs dmidecode \
   iputils-ping jq openssh-server parted nvme-cli xfsprogs btrfs-progs ifupdown resolvconf udev git bridge-utils acpid git smbclient linux-cpupower \
   isc-dhcp-client acpi-support-base nginx tree samba xz-utils rsyslog ntpsec kbd console-data hdparm smartmontools at netcat-openbsd cryptsetup \
   net-tools sysstat pciutils usbutils nut-server beep inotify-tools libjson-glib-1.0-0 libxml2 libpciaccess0 open-iscsi tgt dos2unix dosfstools \
   iptables libpixman-1-0 libspice-server1 libusbredirparser1 dnsmasq lm-sensors gnutls-bin cron rsync fuse3 nfs-kernel-server nfs-common libpng16-16 \
-  wireguard-tools bash-completion libxml2-utils yq ethtool attr xattr psmisc mc bcache-tools
+  wireguard-tools bash-completion libxml2-utils yq ethtool attr xattr psmisc mc bcache-tools "$ADDITIONAL_PACKAGES"
 
 DEB_APPS=$(ls -1 /tmp/applications/*.deb)
 for deb_app in $DEB_APPS; do
@@ -107,7 +116,7 @@ cd /etc
 ln -sf /proc/mounts mtab
 
 cd /tmp
-if ! wget -O /tmp/node.xz https://nodejs.org/dist/v${1}/node-v${1}-linux-x64.tar.xz ; then
+if ! wget -O /tmp/node.xz https://nodejs.org/dist/v${1}/node-v${1}-linux-${NODE_PKG_ARCH}.tar.xz ; then
   exit 1
 fi
 tar -xf /tmp/node.xz
