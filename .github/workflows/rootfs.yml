@@ -17,7 +17,7 @@ on:
       mos_recommended_kernel:
         description: 'MOS Recommended kernel'
         required: true
-        default: '6.18.7'
+        default: '6.18.16'
         type: string
       node_version:
         description: 'Node Version'
@@ -47,7 +47,9 @@ on:
 
 jobs:
   build_rootfs:
-    runs-on: self-hosted
+    runs-on: [self-hosted, X64]
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout repository
@@ -351,47 +353,19 @@ jobs:
         CHANNEL=${CHANNEL}
         PRERELEASE=${PRERELEASE}" >> $GITHUB_ENV
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Create and Upload Release
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ env.VERSION }}-${{ env.CHANNEL }}
-        release_name: "MOS ${{ env.VERSION }}-${{ env.CHANNEL }}"
+        name: "MOS ${{ env.VERSION }}-${{ env.CHANNEL }}"
         body: MOS
-        draft: false
+        files: |
+          ${{ github.workspace }}/release/*
+        overwrite_files: true
         prerelease: ${{ env.PRERELEASE }}
-
-    - name: Upload Release
-      uses: actions/upload-release-asset@v1
+        fail_on_unmatched_files: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{ github.workspace }}/release/rootfs
-        asset_name: rootfs
-        asset_content_type: application/octet-stream
-
-    - name: Upload md5 to Release
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{ github.workspace }}/release/rootfs.md5
-        asset_name: rootfs.md5
-        asset_content_type: text/plain
-
-    - name: Upload mos-release.json
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{ github.workspace }}/release/mos-release.json
-        asset_name: mos-release.json
-        asset_content_type: application/vnd.github+json
 
     - name: Set notification variables on success
       if: success()
