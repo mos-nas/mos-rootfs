@@ -112,8 +112,8 @@ else
 fi
 
 # Get assets ID's from rootfs and md5
-ASSET_ROOTFS=$(jq --arg version $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name == ("rootfs"+ $arch)) | .id' /var/mos/mos-update/releases.json)
-ASSET_ROOTFS_MD5=$(jq --arg version $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name == ("rootfs.md5"+ $arch)) | .id' /var/mos/mos-update/releases.json)
+ASSET_ROOTFS=$(jq --arg version $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name == ("rootfs" + $arch)) | .id' /var/mos/mos-update/releases.json)
+ASSET_ROOTFS_MD5=$(jq --arg version $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name == ("rootfs" + $arch + ".md5")) | .id' /var/mos/mos-update/releases.json)
 
 # Not update Kernel if nothing is passed through
 if [ "$3" = "update_kernel" ] ; then
@@ -147,8 +147,8 @@ if [ "$3" = "update_kernel" ] ; then
       # Get assed ID's for image/drivers and md5's
       ASSET_KERNEL=$(jq --arg kernel $KERNEL --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("image" + $arch)) | .id' /var/mos/mos-update/$KERNEL.json)
       ASSET_DRIVERS=$(jq --arg kernel $KERNEL --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("drivers" + $arch)) | .id' /var/mos/mos-update/$KERNEL.json)
-      ASSET_KERNEL_MD5=$(jq --arg kernel $KERNEL --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("image.md5" + $arch)) | .id' /var/mos/mos-update/$KERNEL.json)
-      ASSET_DRIVERS_MD5=$(jq --arg kernel $KERNEL --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("drivers.md5" + $arch)) | .id' /var/mos/mos-update/$KERNEL.json)
+      ASSET_KERNEL_MD5=$(jq --arg kernel $KERNEL --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("image" + $arch + ".md5")) | .id' /var/mos/mos-update/$KERNEL.json)
+      ASSET_DRIVERS_MD5=$(jq --arg kernel $KERNEL --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("drivers" + $arch + ".md5")) | .id' /var/mos/mos-update/$KERNEL.json)
       UPDATE_KERNEL="true"
     else
       notify -t "MOS Update" -m "No Kernel update needed, continuing with upgrade" -p "normal"
