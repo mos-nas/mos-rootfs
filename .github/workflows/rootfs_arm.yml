@@ -337,6 +337,7 @@ jobs:
         chmod 755 $ROOTFS/etc/mos-release.json
 
         echo "Compressing rootfs..."
+        cd $ROOTFS
         find . | cpio -o -H newc | xz -C crc32 -9 -T0 > "$WORKDIR/release/rootfs_arm64"
         md5sum $WORKDIR/release/rootfs_arm64 | awk '{print $1}' > $WORKDIR/release/rootfs_arm64.md5
         
