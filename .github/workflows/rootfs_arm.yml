@@ -1,4 +1,4 @@
-name: Build MOS rootfs
+name: Build MOS rootfs arm64
 
 on:
   # Allow to trigger action manually
