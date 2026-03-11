@@ -44,6 +44,11 @@ on:
         description: 'SnapRAID Version'
         required: false
         type: string
+      no_arm64:
+        description: 'Don't build ARM64'
+        required: false
+        default: 'false'
+        type: string
 
 jobs:
   build_rootfs:
@@ -59,7 +64,7 @@ jobs:
         fetch-depth: 1
 
     - name: Trigger arm64 rootfs build
-      if: success()
+      if: github.event.inputs.no_arm64 == 'false' && success()
       uses: actions/github-script@v7
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
