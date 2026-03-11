@@ -1,0 +1,406 @@
+name: Build MOS rootfs
+
+on:
+  # Allow to trigger action manually
+  workflow_dispatch:
+    inputs:
+      mos_channel:
+        description: 'MOS Channel'
+        required: true
+        default: 'beta'
+        type: string
+      mos_version:
+        description: 'MOS Version'
+        required: true
+        default: '0.1.4'
+        type: string
+      mos_recommended_kernel:
+        description: 'MOS Recommended kernel'
+        required: true
+        default: '6.18.16'
+        type: string
+      node_version:
+        description: 'Node Version'
+        required: true
+        default: '24.13.0'
+        type: string
+      docker_version:
+        description: 'Docker Version'
+        required: false
+        type: string
+      lxc_version:
+        description: 'LXC Version'
+        required: false
+        type: string
+      qemu_version:
+        description: 'QEMU Version'
+        required: false
+        type: string
+      mergerfs_version:
+        description: 'mergerfs Version'
+        required: false
+        type: string
+      snapraid_version:
+        description: 'SnapRAID Version'
+        required: false
+        type: string
+
+jobs:
+  build_rootfs:
+    runs-on: [self-hosted, ARM64]
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 1
+
+    - name: Install dependencies
+      run: apt-get update && apt-get -y install debootstrap xz-utils cpio jq wget
+
+    - name: Setup rootfs
+      run: |
+        cd ${{ github.workspace }}
+        debootstrap --variant=minbase excalibur ${{ github.workspace }}/rootfs https://pkgmaster.devuan.org/merged
+        cp -R ${{ github.workspace }}/rootfs_files ${{ github.workspace }}/rootfs/tmp/
+        cp ${{ github.workspace }}/chroot-script.sh ${{ github.workspace }}/rootfs/tmp/chroot-script.sh
+        chmod +x ${{ github.workspace }}/rootfs/tmp/chroot-script.sh
+
+    - name: Download applications
+      run: |
+        # Create applications directory in rootfs
+        mkdir -p ${{ github.workspace }}/rootfs/tmp/applications
+
+        # Define application_download and md5 check function
+        application_download() {
+          if [ "$1" == "docker" ] ; then
+            REPO="moby"
+          else
+            REPO="$1"
+          fi
+
+          echo "Downloading: mos-$1_$2_arm64.deb$4"
+          curl --progress-bar -L \
+              --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              --header "Accept: application/octet-stream" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              --output "${{ github.workspace }}/rootfs/tmp/applications/mos-$1_$2_arm64.deb$4" \
+              "https://api.github.com/repos/ich777/mos-$REPO/releases/assets/$3"
+          if [ "$4" == ".md5" ] ; then
+            if [ "$(md5sum ${{ github.workspace }}/rootfs/tmp/applications/mos-$1_$2_arm64.deb | awk '{print $1}')" != "$(cat ${{ github.workspace }}/rootfs/tmp/applications/mos-$1_$2_arm64.deb$4)" ] ; then
+              echo "Checksum error from file: mos-$1_$2_arm64.deb"
+              exit 1
+            fi
+          fi
+        }
+
+        # Get Architecture
+        ARCHITECTURE=$(uname -m)
+        if [ "$ARCHITECTURE" == "x86_64" ] ; then
+          DEB_ARCH="amd64"
+        elif [ "$ARCHITECTURE" == "aarch64" ] ; then
+          DEB_ARCH="arm64"
+        fi
+
+        # Get Docker Releases
+        DOCKER_JSON=$(curl -s --request GET \
+            --url "https://api.github.com/repos/ich777/mos-moby/releases?per_page=50" \
+            --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            --header "X-GitHub-Api-Version: 2022-11-28")
+
+        # Define DOCKER_VERSION
+        if [ ! -z "${{ github.event.inputs.docker_version }}" ] ; then
+          DOCKER_VERSION=${{ github.event.inputs.docker_version }}
+        else
+          DOCKER_VERSION=$(echo $DOCKER_JSON | jq -r '.[].tag_name' | sort -V | tail -1)
+        fi
+
+        # Get Asset IDs
+        DOCKER_DEB=$(echo $DOCKER_JSON | jq --arg version v${DOCKER_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-docker") and endswith($arch + ".deb")) | .id')
+        DOCKER_DEB_MD5=$(echo $DOCKER_JSON | jq --arg version v${DOCKER_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-docker") and endswith($arch + ".deb.md5")) | .id')
+
+        # Get LXC Releases
+        LXC_JSON=$(curl -s --request GET \
+            --url "https://api.github.com/repos/ich777/mos-lxc/releases?per_page=50" \
+            --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            --header "X-GitHub-Api-Version: 2022-11-28")
+
+        # Define LXC_VERSION
+        if [ ! -z "${{ github.event.inputs.lxc_version }}" ] ; then
+          LXC_VERSION=${{ github.event.inputs.lxc_version }}
+        else
+          LXC_VERSION=$(echo $LXC_JSON | jq -r '.[].tag_name' | sort -V | tail -1)
+        fi
+
+        # Get Asset IDs
+        LXC_DEB=$(echo $LXC_JSON | jq --arg version v${LXC_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-lxc") and endswith($arch + ".deb")) | .id')
+        LXC_DEB_MD5=$(echo $LXC_JSON | jq --arg version v${LXC_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-lxc") and endswith($arch + ".deb.md5")) | .id')
+
+        # Get QEMU Releases
+        QEMU_JSON=$(curl -s --request GET \
+            --url "https://api.github.com/repos/ich777/mos-qemu/releases?per_page=50" \
+            --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            --header "X-GitHub-Api-Version: 2022-11-28")
+
+        # Define QEMU_VERSION
+        if [ ! -z "${{ github.event.inputs.qemu_version }}" ] ; then
+          QEMU_VERSION=${{ github.event.inputs.qemu_version }}
+        else
+          QEMU_VERSION=$(echo $QEMU_JSON | jq -r '.[].tag_name' | sort -V | tail -1)
+        fi
+
+        # Get Asset IDs
+        QEMU_DEB=$(echo $QEMU_JSON | jq --arg version v${QEMU_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-qemu") and endswith($arch + ".deb")) | .id')
+        QEMU_DEB_MD5=$(echo $QEMU_JSON | jq --arg version v${QEMU_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-qemu") and endswith($arch + ".deb.md5")) | .id')
+
+        # Get SnapRAID Releases
+        SNAPRAID_JSON=$(curl -s --request GET \
+            --url "https://api.github.com/repos/ich777/mos-snapraid/releases?per_page=50" \
+            --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            --header "X-GitHub-Api-Version: 2022-11-28")
+
+        # Define SNAPRAID_VERSION
+        if [ ! -z "${{ github.event.inputs.snapraid_version }}" ] ; then
+          SNAPRAID_VERSION=${{ github.event.inputs.snapraid_version }}
+        else
+          SNAPRAID_VERSION=$(echo $SNAPRAID_JSON | jq -r '.[].tag_name' | sort -V | tail -1)
+        fi
+
+        # Get Asset IDs
+        SNAPRAID_DEB=$(echo $SNAPRAID_JSON | jq --arg version v${SNAPRAID_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-snapraid") and endswith($arch + ".deb")) | .id')
+        SNAPRAID_DEB_MD5=$(echo $SNAPRAID_JSON | jq --arg version v${SNAPRAID_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-snapraid") and endswith($arch + ".deb.md5")) | .id')
+
+        # Get MergerFS Releases
+        MERGERFS_JSON=$(curl -s --request GET \
+            --url "https://api.github.com/repos/ich777/mos-mergerfs/releases?per_page=50" \
+            --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            --header "X-GitHub-Api-Version: 2022-11-28")
+
+        # Define MERGERFS_VERSION
+        if [ ! -z "${{ github.event.inputs.mergerfs_version }}" ] ; then
+          MERGERFS_VERSION=${{ github.event.inputs.mergerfs_version }}
+        else
+          MERGERFS_VERSION=$(echo $MERGERFS_JSON | jq -r '.[].tag_name' | sort -V | tail -1)
+        fi
+
+        # Get Asset IDs
+        MERGERFS_DEB=$(echo $MERGERFS_JSON | jq --arg version v${MERGERFS_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-mergerfs") and endswith($arch + ".deb")) | .id')
+        MERGERFS_DEB_MD5=$(echo $MERGERFS_JSON | jq --arg version v${MERGERFS_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-mergerfs") and endswith($arch + ".deb.md5")) | .id')
+
+        # Get image-sha Releases
+        IMAGESHA_JSON=$(curl -s --request GET \
+            --url "https://api.github.com/repos/ich777/mos-image-sha/releases?per_page=50" \
+            --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            --header "X-GitHub-Api-Version: 2022-11-28")
+
+        # Define IMAGESHA_VERSION
+        IMAGESHA_VERSION=$(echo $IMAGESHA_JSON | jq -r '.[].tag_name' | sort -V | tail -1)
+
+        # Get Asset IDs
+        IMAGESHA_DEB=$(echo $IMAGESHA_JSON | jq --arg version v${IMAGESHA_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-image-sha") and endswith($arch + ".deb")) | .id')
+        IMAGESHA_DEB_MD5=$(echo $IMAGESHA_JSON | jq --arg version v${IMAGESHA_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-image-sha") and endswith($arch + ".deb.md5")) | .id')
+
+        # Get image-sha Releases
+        NOTIFY_JSON=$(curl -s --request GET \
+            --url "https://api.github.com/repos/ich777/mos-notify/releases?per_page=50" \
+            --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            --header "X-GitHub-Api-Version: 2022-11-28")
+
+        # Define NOTIFY_VERSION
+        NOTIFY_VERSION=$(echo $NOTIFY_JSON | jq -r '.[].tag_name' | sort -V | tail -1)
+
+        # Get Asset IDs
+        NOTIFY_DEB=$(echo $NOTIFY_JSON | jq --arg version v${NOTIFY_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-notify") and endswith($arch + ".deb")) | .id')
+        NOTIFY_DEB_MD5=$(echo $NOTIFY_JSON | jq --arg version v${NOTIFY_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-notify") and endswith($arch + ".deb.md5")) | .id')
+
+        # Get docker-watchdog Releases
+        DOCKERWD_JSON=$(curl -s --request GET \
+            --url "https://api.github.com/repos/ich777/mos-docker-watchdog/releases?per_page=50" \
+            --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            --header "X-GitHub-Api-Version: 2022-11-28")
+
+        # Define DOCKERWD_VERSION
+        DOCKERWD_VERSION=$(echo $DOCKERWD_JSON | jq -r '.[].tag_name' | sort -V | tail -1)
+
+        # Get Asset IDs
+        DOCKERWD_DEB=$(echo $DOCKERWD_JSON | jq --arg version v${DOCKERWD_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-docker-watchdog") and endswith($arch + ".deb")) | .id')
+        DOCKERWD_DEB_MD5=$(echo $DOCKERWD_JSON | jq --arg version v${DOCKERWD_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-docker-watchdog") and endswith($arch + ".deb.md5")) | .id')
+
+        # Get docker-watchdog Releases
+        WSDDN_JSON=$(curl -s --request GET \
+            --url "https://api.github.com/repos/ich777/mos-wsddn/releases?per_page=50" \
+            --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            --header "X-GitHub-Api-Version: 2022-11-28")
+
+        # Define DOCKERWD_VERSION
+        WSDDN_VERSION=$(echo $WSDDN_JSON | jq -r '.[].tag_name' | sort -V | tail -1)
+
+        # Get Asset IDs
+        WSDDN_DEB=$(echo $WSDDN_JSON | jq --arg version v${WSDDN_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-wsdd-native") and endswith($arch + ".deb")) | .id')
+        WSDDN_DEB_MD5=$(echo $WSDDN_JSON | jq --arg version v${WSDDN_VERSION#v} --arg arch "$DEB_ARCH" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name | startswith("mos-wsdd-native") and endswith($arch + ".deb.md5")) | .id')
+
+        # Download applications
+        application_download "docker" "${DOCKER_VERSION#v}" "$DOCKER_DEB"
+        application_download "docker" "${DOCKER_VERSION#v}" "$DOCKER_DEB_MD5" ".md5"
+        application_download "lxc" "${LXC_VERSION#v}" "$LXC_DEB"
+        application_download "lxc" "${LXC_VERSION#v}" "$LXC_DEB_MD5" ".md5"
+        application_download "qemu" "${QEMU_VERSION#v}" "$QEMU_DEB"
+        application_download "qemu" "${QEMU_VERSION#v}" "$QEMU_DEB_MD5" ".md5"
+        application_download "snapraid" "${SNAPRAID_VERSION#v}" "$SNAPRAID_DEB"
+        application_download "snapraid" "${SNAPRAID_VERSION#v}" "$SNAPRAID_DEB_MD5" ".md5"
+        application_download "mergerfs" "${MERGERFS_VERSION#v}" "$MERGERFS_DEB"
+        application_download "mergerfs" "${MERGERFS_VERSION#v}" "$MERGERFS_DEB_MD5" ".md5"
+        application_download "image-sha" "${IMAGESHA_VERSION#v}" "$IMAGESHA_DEB"
+        application_download "image-sha" "${IMAGESHA_VERSION#v}" "$IMAGESHA_DEB_MD5" ".md5"
+        application_download "notify" "${NOTIFY_VERSION#v}" "$NOTIFY_DEB"
+        application_download "notify" "${NOTIFY_VERSION#v}" "$NOTIFY_DEB_MD5" ".md5"
+        application_download "docker-watchdog" "${DOCKERWD_VERSION#v}" "$DOCKERWD_DEB"
+        application_download "docker-watchdog" "${DOCKERWD_VERSION#v}" "$DOCKERWD_DEB_MD5" ".md5"
+        application_download "wsddn" "${WSDDN_VERSION#v}" "$WSDDN_DEB"
+        application_download "wsddn" "${WSDDN_VERSION#v}" "$WSDDN_DEB_MD5" ".md5"
+
+    - name: Modify rootfs
+      run: |
+        chroot ${{ github.workspace }}/rootfs /tmp/chroot-script.sh "${{ github.event.inputs.node_version }}"
+
+    - name: Create MOS release
+      run: |
+        WORKDIR=${{ github.workspace }}
+        ROOTFS=$WORKDIR/rootfs
+        mkdir -p $WORKDIR/release
+
+        # Add Memtest86+ License
+        mkdir -p $ROOTFS/usr/share/doc/memtest86plus
+        wget -q -O $ROOTFS/usr/share/doc/memtest86plus/LICENSE https://raw.githubusercontent.com/memtest86plus/memtest86plus/refs/heads/main/LICENSE
+
+        cd $ROOTFS
+        rm -rf $ROOTFS/root/.* $ROOTFS/var/log/* $ROOTFS/root/* $ROOTFS/tmp/* $ROOTFS/tmp/.* $ROOTFS/var/lib/apt/lists/* $ROOTFS/etc/init.d/.* $ROOTFS/etc/resolv.conf $ROOTFS/var/cache/apt/* $ROOTFS/var/cache/apt/.*
+
+        # Grab latest frontend
+        FRONTEND_JSON=$(curl -s --request GET \
+            --url "https://api.github.com/repos/ich777/mos-frontend/releases/latest" \
+            --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            --header "X-GitHub-Api-Version: 2022-11-28")
+        FRONTEND_V=$(echo $FRONTEND_JSON | jq -r '.tag_name')
+        FRONTEND_ASSET_ID=$(echo $FRONTEND_JSON | jq -r '.assets[] | select(.name | startswith("mos-frontend") and endswith(".tar.gz")) | .id')
+
+        # Download and extract Frontend
+        curl --progress-bar -L \
+          --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+          --header "Accept: application/octet-stream" \
+          --header "X-GitHub-Api-Version: 2022-11-28" \
+          --output "$WORKDIR/frontend.tar.gz" \
+          "https://api.github.com/repos/ich777/mos-frontend/releases/assets/$FRONTEND_ASSET_ID"
+        tar -C $ROOTFS/var/www/ -xf $WORKDIR/frontend.tar.gz
+        chown -R root:root $ROOTFS/var/www/
+        chmod -R 755 $ROOTFS/var/www/
+
+        # Check node version
+        NODE_V="$(node --version 2>/dev/null)"
+        if [ "${NODE_V#v}" != "${{ github.event.inputs.node_version }}" ] ; then
+          ARCHITECTURE=$(uname -m)
+          if [ "$ARCHITECTURE" == "x86_64" ] ; then
+            NODE_PKG_ARCH="x64"
+          elif [ "$ARCHITECTURE" == "aarch64" ] ; then
+            NODE_PKG_ARCH="arm64"
+          fi
+          cd /tmp
+          if ! wget -O /tmp/node.xz https://nodejs.org/dist/v${{ github.event.inputs.node_version }}/node-v${{ github.event.inputs.node_version }}-linux-${NODE_PKG_ARCH}.tar.xz ; then
+            exit 1
+          fi
+          tar -xf /tmp/node.xz
+          rm -f /tmp/node-*/CHANGE* /tmp/node-*/README*
+          cp -R /tmp/node-*/* /usr/
+          rm -rf /tmp/node-* /tmp/node.xz
+        fi
+
+        # Get latest API
+        git clone https://oauth2:${{ secrets.GITHUB_TOKEN }}@github.com/ich777/mos-api.git --depth=1 $ROOTFS/usr/local/lib/mos-api
+        API_V=$(date -d @"$(git -C $ROOTFS/usr/local/lib/mos-api log -1 --format=%ct)" "+%Y%m%d-%H%M")
+        rm -rf $ROOTFS/usr/local/lib/mos-api/.git $ROOTFS/usr/local/lib/mos-api/node_modules $ROOTFS/usr/local/lib/mos-api/package-lock.json
+        cd $ROOTFS/usr/local/lib/mos-api
+        npm install
+        mv $ROOTFS/usr/local/lib/mos-api/node_modules $ROOTFS/usr/local/lib/mos-api-node_modules
+        rm -f $ROOTFS/usr/local/lib/mos-api/package-lock.json
+        chown -R root:root $ROOTFS/usr/local/lib/mos-api
+        chmod -R 755 $ROOTFS/usr/local/lib/mos-api
+
+        CHANNEL=${{ github.event.inputs.mos_channel }}
+        VERSION=${{ github.event.inputs.mos_version }}
+        RECOMMENDED_KERNEL=${{ github.event.inputs.mos_recommended_kernel }}-mos
+
+        chmod +x $WORKDIR/mos-json
+        $WORKDIR/mos-json "$CHANNEL" "$VERSION" "$RECOMMENDED_KERNEL" "$ROOTFS" "$FRONTEND_V" "$API_V" "${{ github.event.inputs.node_version }}" > $ROOTFS/etc/mos-release.json
+        chown root:root $ROOTFS/etc/mos-release.json
+        chmod 755 $ROOTFS/etc/mos-release.json
+
+        echo "Compressing rootfs..."
+        find . | cpio -o -H newc | xz -C crc32 -9 -T0 > "$WORKDIR/release/rootfs_arm64"
+        md5sum $WORKDIR/release/rootfs_arm64 | awk '{print $1}' > $WORKDIR/release/rootfs_arm64.md5
+        
+        if [[ $CHANNEL == alpha* ]]; then
+          PRERELEASE="true"
+        elif [[ $CHANNEL == beta* ]]; then
+          PRERELEASE="true"
+        else
+          PRERELEASE="false"
+        fi
+
+        echo "VERSION=${VERSION}
+        CHANNEL=${CHANNEL}
+        PRERELEASE=${PRERELEASE}" >> $GITHUB_ENV
+
+    - name: Create and Upload Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ env.VERSION }}-${{ env.CHANNEL }}
+        name: "MOS ${{ env.VERSION }}-${{ env.CHANNEL }}"
+        body: MOS
+        files: |
+          ${{ github.workspace }}/release/*
+        overwrite_files: true
+        prerelease: ${{ env.PRERELEASE }}
+        fail_on_unmatched_files: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set notification variables on success
+      if: success()
+      run: |
+        echo "NOTIFICATION_PRIORITY=0" >> $GITHUB_ENV
+        echo "NOTIFICATION_MESSAGE=rootfs arm64 ${{ env.VERSION }}-${{ env.CHANNEL }} ready" >> $GITHUB_ENV
+
+    - name: Set notification variables on failure
+      if: failure()
+      run: |
+        echo "NOTIFICATION_PRIORITY=1" >> $GITHUB_ENV
+        echo "NOTIFICATION_MESSAGE=Failed to build rootfs arm64 ${{ env.VERSION }}-${{ env.CHANNEL }}" >> $GITHUB_ENV
+
+    - name: Cleanup & Notification
+      if: always()
+      run: |
+        # Discord notification function
+        discord_push_notification() {
+          if [ $3 -ge 1 ]; then
+            COLOR=16711680
+          else
+            COLOR=65280
+          fi
+
+          data=$(cat <<EOF
+        {
+          "embeds": [{
+            "title": "${1}",
+            "description": "${2}",
+            "color": ${COLOR}
+          }]
+        }
+        EOF
+        )
+          curl -H "Content-Type: application/json" -d "$data" "${{ secrets.DISCORD_WEBHOOK_URL }}"
+        }
+
+        discord_push_notification "${{ github.workflow }}" "${{ env.NOTIFICATION_MESSAGE }}" "${{ env.NOTIFICATION_PRIORITY }}"
+        rm -rf ${{ github.workspace }}/* ${{ github.workspace }}/.*
