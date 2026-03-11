@@ -57,6 +57,30 @@ jobs:
       with:
         fetch-depth: 1
 
+    - name: Trigger arm64 rootfs build
+      if: success()
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          await github.rest.actions.createWorkflowDispatch({
+            owner: context.repo.ich777,
+            repo: context.repo.mos-rootfs,
+            workflow_id: 'rootfs_arm.yml',
+            ref: 'master',
+            inputs: {
+              mos_channel: '${{ github.event.inputs.mos_channel }}',
+              mos_version: '${{ github.event.inputs.mos_version }}',
+              mos_recommended_kernel: '${{ github.event.inputs.mos_recommended_kernel }}',
+              node_version: '${{ github.event.inputs.node_version }}',
+              docker_version: '${{ github.event.inputs.docker_version }}',
+              lxc_version: '${{ github.event.inputs.lxc_version }}',
+              qemu_version: '${{ github.event.inputs.qemu_version }}',
+              mergerfs_version: '${{ github.event.inputs.mergerfs_version }}',
+              snapraid_version: '${{ github.event.inputs.snapraid_version }}'
+            }
+          })
+
     - name: Install dependencies
       run: apt-get update && apt-get -y install debootstrap xz-utils cpio jq wget
 
