@@ -45,7 +45,7 @@ on:
         required: false
         type: string
       no_arm64:
-        description: 'Don't build ARM64'
+        description: 'No ARM64 build'
         required: false
         default: 'false'
         type: string
