@@ -112,8 +112,8 @@ else
 fi
 
 # Get assets ID's from rootfs and md5
-ASSET_ROOTFS=$(jq --arg version $VERSION -r '.[] | select(.tag_name == $version) | .assets[] | select(.name == "rootfs") | .id' /var/mos/mos-update/releases.json)
-ASSET_ROOTFS_MD5=$(jq --arg version $VERSION -r '.[] | select(.tag_name == $version) | .assets[] | select(.name == "rootfs.md5") | .id' /var/mos/mos-update/releases.json)
+ASSET_ROOTFS=$(jq --arg version $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name == ("rootfs"+ $arch)) | .id' /var/mos/mos-update/releases.json)
+ASSET_ROOTFS_MD5=$(jq --arg version $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $version) | .assets[] | select(.name == ("rootfs.md5"+ $arch)) | .id' /var/mos/mos-update/releases.json)
 
 # Not update Kernel if nothing is passed through
 if [ "$3" = "update_kernel" ] ; then
