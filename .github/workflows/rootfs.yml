@@ -363,6 +363,7 @@ jobs:
         cp $ROOTFS/etc/mos-release.json $WORKDIR/release/mos-release.json
 
         echo "Compressing rootfs..."
+        cd $ROOTFS
         find . | cpio -o -H newc | xz -C crc32 -9 -T0 > "$WORKDIR/release/rootfs"
         md5sum $WORKDIR/release/rootfs | awk '{print $1}' > $WORKDIR/release/rootfs.md5
         
