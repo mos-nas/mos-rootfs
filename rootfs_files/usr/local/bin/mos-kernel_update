@@ -94,8 +94,8 @@ fi
 # Get assets ID's from rootfs and md5
 ASSET_KERNEL=$(jq --arg kernel $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("image" + $arch)) | .id' /var/mos/mos-update/kernel/releases.json)
 ASSET_DRIVERS=$(jq --arg kernel $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("drivers" + $arch)) | .id' /var/mos/mos-update/kernel/releases.json)
-ASSET_KERNEL_MD5=$(jq --arg kernel $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("image.md5" + $arch)) | .id' /var/mos/mos-update/kernel/releases.json)
-ASSET_DRIVERS_MD5=$(jq --arg kernel $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("drivers.md5" + $arch)) | .id' /var/mos/mos-update/kernel/releases.json)
+ASSET_KERNEL_MD5=$(jq --arg kernel $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("image" + $arch + ".md5")) | .id' /var/mos/mos-update/kernel/releases.json)
+ASSET_DRIVERS_MD5=$(jq --arg kernel $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("drivers" + $arch + ".md5")) | .id' /var/mos/mos-update/kernel/releases.json)
 if [ -z "$ARCHITECTURE" ] ; then
   ASSET_MICROCODE=$(jq --arg kernel $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "microcode") | .id' /var/mos/mos-update/kernel/releases.json)
   ASSET_MICROCODE_MD5=$(jq --arg kernel $VERSION --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == "microcode.md5") | .id' /var/mos/mos-update/kernel/releases.json)
