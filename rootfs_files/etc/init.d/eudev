@@ -190,6 +190,7 @@ case "$1" in
     create_dev_makedev
 
     # MOS Custom - lower udevadm settle timeout to 15 seconds
+    # and clear console after settle went through, then
     # wait for the udevd childs to finish
     log_action_begin_msg "Waiting for /dev to be fully populated"
     if udevadm settle --timeout=15 ; then
@@ -197,6 +198,7 @@ case "$1" in
     else
       log_action_end_msg 0 'timeout'
     fi
+    printf "\033c" > /dev/console 2>/dev/null
   ;;
 
   stop)
