@@ -26,8 +26,9 @@ PID="/run/mos-api.pid"
 # Import MOS functions
 . /usr/local/lib/functions/mos-common
 
-# Set node module location
+# Set node module location & don't show warnings
 export NODE_PATH=/usr/local/lib/mos-api-node_modules
+export NODE_NO_WARNINGS=1
 
 # MOS custom: Pull latest version from mos-api
 download_mosapi() {
