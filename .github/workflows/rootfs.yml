@@ -22,7 +22,7 @@ on:
       node_version:
         description: 'Node Version'
         required: true
-        default: '24.13.0'
+        default: '24.14.0'
         type: string
       docker_version:
         description: 'Docker Version'
