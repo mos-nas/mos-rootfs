@@ -12,9 +12,11 @@ const fs = require('fs');
 
 // API root directory
 const API_ROOT = '/usr/local/lib/mos-api';
+const NODE_MODULES = '/usr/local/lib/mos-api-node_modules';
 
 // Add node_modules to module search path
-module.paths.unshift(path.join(API_ROOT, 'node_modules'));
+process.env.NODE_PATH = NODE_MODULES;
+require('module').Module._initPaths();
 
 // Load environment from file
 const ENV_PATH = '/boot/config/api/env';
