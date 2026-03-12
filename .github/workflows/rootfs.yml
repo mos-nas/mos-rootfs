@@ -340,6 +340,12 @@ jobs:
           if ! wget -O /tmp/node.xz https://nodejs.org/dist/v${{ github.event.inputs.node_version }}/node-v${{ github.event.inputs.node_version }}-linux-${NODE_PKG_ARCH}.tar.xz ; then
             exit 1
           fi
+          rm -rf /usr/bin/node
+          rm -rf /usr/bin/npm
+          rm -rf /usr/bin/npx
+          rm -rf /usr/lib/node_modules
+          rm -rf /usr/include/node
+          rm -rf /usr/share/doc/node
           tar -xf /tmp/node.xz
           rm -f /tmp/node-*/CHANGE* /tmp/node-*/README*
           cp -R /tmp/node-*/* /usr/
