@@ -311,16 +311,25 @@ modify_issue() {
   MOS_V=$(jq -r '"\(.mos.version)-\(.mos.channel)"' /etc/mos-release.json)
   echo -n '\n running MOS '"${MOS_V} - built on Devuan GNU/Linux" > /etc/issue
   echo "" >> /etc/issue
-  for iface in eth0 br0; do
+  found_address=false
+  for iface in $(ls /sys/class/net/) ; do
+    case "$iface" in
+      eth*|br*) ;;
+      *) continue ;;
+    esac
     ipv4=$(ip -4 addr show "$iface" 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1)
     ipv6=$(ip -6 addr show "$iface" 2>/dev/null | grep -oP '(?<=inet6\s)[0-9a-f:]+(?=/64)' | grep -v '^fe80' | head -1)
-    if [ ! -z "$ipv4" ] || [ ! -z "$ipv6" ]; then
+    if [ -n "$ipv4" ] || [ -n "$ipv6" ] ; then
       echo "" >> /etc/issue
-      [ ! -z "$ipv4" ] && echo "  IPv4: $ipv4" >> /etc/issue
-      [ ! -z "$ipv6" ] && echo "  IPv6: $ipv6" >> /etc/issue
-      break
+      [ -n "$ipv4" ] && echo "    IPv4: $ipv4" >> /etc/issue
+      [ -n "$ipv6" ] && echo "    IPv6: $ipv6" >> /etc/issue
+      found_address=true
     fi
   done
+  if [ "$found_address" == "false" ]; then
+    echo "" >> /etc/issue
+    echo "  No network address found" >> /etc/issue
+  fi
   echo "" >> /etc/issue
 }
 
@@ -455,6 +464,9 @@ binfmt_setup() {
           aarch64)
             echo ':qemu-aarch64:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xb7\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:/usr/bin/qemu-aarch64-static:F' > /proc/sys/fs/binfmt_misc/register
           ;;
+          x86_64)
+            echo ':qemu-x86_64:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x3e\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:/usr/bin/qemu-x86_64-static:F' > /proc/sys/fs/binfmt_misc/register
+            ;;
           *)
             :
           ;;
