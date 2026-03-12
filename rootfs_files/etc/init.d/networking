@@ -114,19 +114,50 @@ ifup_hotplug () {
   fi
 }
 
-# MOS custom:
-NETWORK_JSON="/boot/config/network.json"
+# MOS custom: Bring up interfaces with parallel DHCP
+ifup_parallel() {
+  DHCP_IFACES=""
+  [ -f "$DHCP_INTERFACES_FILE" ] && DHCP_IFACES=$(cat "$DHCP_INTERFACES_FILE")
 
-# MOS custom:
+  if [ -z "$DHCP_IFACES" ] ; then
+    # No DHCP interfaces — standard bring-up
+    ifup -a "$@"
+    return $?
+  fi
+
+  # Build exclusion flags for DHCP interfaces
+  dhcp_exclusions=""
+  for iface in $DHCP_IFACES ; do
+    dhcp_exclusions="$dhcp_exclusions -X $iface"
+  done
+
+  # Bring up non-DHCP interfaces (instant)
+  ifup -a $dhcp_exclusions "$@" || true
+
+  # Bring up DHCP interfaces in parallel (console output suppressed, dhclient logs to syslog)
+  for iface in $DHCP_IFACES ; do
+    ifup "$iface" "$@" > /dev/null 2>&1 &
+  done
+  wait
+
+  # Cleanup
+  rm -f "$DHCP_INTERFACES_FILE"
+}
+
+# MOS custom: Paths
+NETWORK_JSON="/boot/config/network.json"
+MOS_RUN_DIR="/var/mos"
+DHCP_INTERFACES_FILE="$MOS_RUN_DIR/dhcp_interfaces"
+
+# MOS custom: Disable IPv6 globally
 disable_ipv6() {
-  log_progress_msg "Disabling IPv6"
   sysctl -wq net.ipv6.conf.all.disable_ipv6=1
   sysctl -wq net.ipv6.conf.default.disable_ipv6=1
   sysctl -wq net.ipv6.conf.lo.disable_ipv6=1
   sysctl -wq net.ipv6.conf.all.forwarding=0
 }
 
-# MOS custom:
+# MOS custom: Enable IPv6 globally
 enable_ipv6() {
   sysctl -wq net.ipv6.conf.all.disable_ipv6=0
   sysctl -wq net.ipv6.conf.default.disable_ipv6=0
@@ -136,7 +167,7 @@ enable_ipv6() {
   sysctl -wq net.ipv6.conf.default.accept_ra=2
 }
 
-# MOS custom:
+# MOS custom: Append a line to the interfaces config buffer
 interface_config() {
   if [ -z "$INTERFACE_CFG" ] ; then
     INTERFACE_CFG="$1"
@@ -240,7 +271,7 @@ reconcile_interfaces() {
         # Assign MAC to legacy entry
         jq --argjson idx "$IDX" --arg mac "$FOUND_MAC" '.interfaces[$idx].mac = $mac' "$NETWORK_JSON" > "${NETWORK_JSON}.tmp" && mv "${NETWORK_JSON}.tmp" "$NETWORK_JSON"
         CHANGED=true
-        log_progress_msg "Assigned MAC $FOUND_MAC to $IFACE_NAME"
+        logger -t networking "Assigned MAC $FOUND_MAC to $IFACE_NAME"
       fi
     fi
     IDX=$((IDX + 1))
@@ -272,20 +303,20 @@ reconcile_interfaces() {
         if [ "$IFACE_NAME" != "$DETECTED_NAME" ] ; then
           jq --argjson idx "$IDX" --arg name "$DETECTED_NAME" '.interfaces[$idx].name = $name' "$NETWORK_JSON" > "${NETWORK_JSON}.tmp" && mv "${NETWORK_JSON}.tmp" "$NETWORK_JSON"
           CHANGED=true
-          log_progress_msg "Updated $IFACE_MAC: $IFACE_NAME -> $DETECTED_NAME"
+          logger -t networking "Updated $IFACE_MAC: $IFACE_NAME -> $DETECTED_NAME"
         fi
         # Ensure status is enabled
         if [ "$IFACE_STATUS" = "orphan" ] ; then
           jq --argjson idx "$IDX" '.interfaces[$idx].status = "enabled"' "$NETWORK_JSON" > "${NETWORK_JSON}.tmp" && mv "${NETWORK_JSON}.tmp" "$NETWORK_JSON"
           CHANGED=true
-          log_progress_msg "Reactivated $IFACE_MAC ($DETECTED_NAME)"
+          logger -t networking "Reactivated $IFACE_MAC ($DETECTED_NAME)"
         fi
       else
         # MAC Adress not in system mark as orphan
         if [ "$IFACE_STATUS" != "orphan" ] && [ "$IFACE_STATUS" != "disabled" ] ; then
           jq --argjson idx "$IDX" '.interfaces[$idx].status = "orphan"' "$NETWORK_JSON" > "${NETWORK_JSON}.tmp" && mv "${NETWORK_JSON}.tmp" "$NETWORK_JSON"
           CHANGED=true
-          log_progress_msg "Orphaned $IFACE_NAME ($IFACE_MAC)"
+          logger -t networking "Orphaned $IFACE_NAME ($IFACE_MAC)"
         fi
       fi
     fi
@@ -311,12 +342,12 @@ reconcile_interfaces() {
       NEW_IFACE="{\"mac\":\"${DET_MAC}\",\"name\":\"${DET_NAME}\",\"label\":null,\"type\":\"ethernet\",\"mode\":null,\"interfaces\":[],\"ipv4\":[{\"dhcp\":true}],\"ipv6\":[],\"vlans\":[],\"mtu\":null,\"hw_addr\":null,\"status\":\"enabled\"}"
       jq --argjson iface "$NEW_IFACE" '.interfaces += [$iface]' "$NETWORK_JSON" > "${NETWORK_JSON}.tmp" && mv "${NETWORK_JSON}.tmp" "$NETWORK_JSON"
       CHANGED=true
-      log_progress_msg "Added new interface $DET_NAME ($DET_MAC)"
+      logger -t networking "Added new interface $DET_NAME ($DET_MAC)"
     fi
     DIDX=$((DIDX + 1))
   done
 
-  [ "$CHANGED" = "true" ] && log_progress_msg "Interface reconciliation complete"
+  [ "$CHANGED" = "true" ] && log_progress_msg "interfaces reconciled"
 }
 
 # MOS custom: Generate /etc/network/interfaces from network.json
@@ -326,6 +357,7 @@ configure_interfaces() {
   INTERFACES_JSON=$(jq '.interfaces' "$NETWORK_JSON")
   INTERFACE_CFG=""
   INTERFACE_ADDITIONAL=""
+  DHCP_INTERFACES=""
 
   # Cleanup: tear down existing MOS-managed bridges and bonds before reconfiguring
   for BR in $(ls /sys/class/net/*/bridge/bridge_id 2>/dev/null | cut -d/ -f5) ; do
@@ -386,6 +418,7 @@ configure_interfaces() {
       if [ "$DHCP" != "false" ] ; then
         interface_config "auto $INTERFACE"
         interface_config "iface $INTERFACE inet dhcp"
+        DHCP_INTERFACES="${DHCP_INTERFACES:+$DHCP_INTERFACES }$INTERFACE"
       else
         ADDRESS=$(echo "$INTERFACE_JSON" | jq -r '.ipv4[0].address // empty')
         GATEWAY=$(echo "$INTERFACE_JSON" | jq -r '.ipv4[0].gateway // empty')
@@ -408,7 +441,7 @@ configure_interfaces() {
     if [ "$TYPE" = "bridge" ] ; then
       bridge_setup "$INTERFACE"
       BRIDGE_INTERFACES=$(echo "$INTERFACE_JSON" | jq -r '.interfaces // [] | join(" ")')
-      if [ -n "$BRIDGE_INTERFACES" ] && [ "$BRIDGE_INTERFACES" != "" ] ; then
+      if [ -n "$BRIDGE_INTERFACES" ] ; then
         interface_config "    bridge_ports $BRIDGE_INTERFACES"
         bridge_add_interface "$INTERFACE" "$BRIDGE_INTERFACES"
       fi
@@ -478,6 +511,7 @@ configure_interfaces() {
         if [ "$VLAN_DHCP" != "false" ] ; then
           interface_config "auto $VLAN_IFACE"
           interface_config "iface $VLAN_IFACE inet dhcp"
+          DHCP_INTERFACES="${DHCP_INTERFACES:+$DHCP_INTERFACES }$VLAN_IFACE"
         else
           VLAN_ADDRESS=$(echo "$VLAN_JSON" | jq -r '.ipv4[0].address // empty')
           VLAN_GATEWAY=$(echo "$VLAN_JSON" | jq -r '.ipv4[0].gateway // empty')
@@ -500,6 +534,10 @@ configure_interfaces() {
     IDX=$((IDX + 1))
   done
   echo -e "$INTERFACE_ADDITIONAL$INTERFACE_CFG" > /etc/network/interfaces
+
+  # Save DHCP interface list for parallel bring-up
+  mkdir -p "$MOS_RUN_DIR"
+  echo "$DHCP_INTERFACES" > "$DHCP_INTERFACES_FILE"
 }
 
 case "$1" in
@@ -522,7 +560,7 @@ case "$1" in
         udevadm settle || true
       fi
     fi
-    if ifup -a $exclusions $verbose && ifup_hotplug $exclusions $verbose ; then
+    if ifup_parallel $exclusions $verbose && ifup_hotplug $exclusions $verbose ; then
       log_action_end_msg $?
     else
       log_action_end_msg $?
@@ -554,7 +592,7 @@ case "$1" in
     process_options
     check_ifstate
 
-    if ifup --exclude=lo $state $verbose ; then
+    if ifup_parallel --exclude=lo $verbose ; then
       log_action_end_msg $?
     else
       log_action_end_msg $?
@@ -576,7 +614,7 @@ case "$1" in
 
     set -f
     exclusions=$(process_exclusions)
-    if ifup -a --exclude=lo $exclusions $verbose && ifup_hotplug $exclusions $verbose ; then
+    if ifup_parallel --exclude=lo $exclusions $verbose && ifup_hotplug $exclusions $verbose ; then
       log_action_end_msg $?
     else
       log_action_end_msg $?
