@@ -184,7 +184,10 @@ download_asset "$GRUB_DEB_MD5" ".md5"
 
 # Install GRUB
 echo "Installing GRUB"
-dpkg --install /var/mos/installer/grub.deb >/dev/null
+if ! dpkg --install /var/mos/installer/grub.deb >/dev/null ; then
+  echo "ERROR: GRUB installation failed"
+  exit 1
+fi
 
 # Format disk depending which filesystem is passed over
 if [ "$FS_TYPE" != "vfat" ] ; then
