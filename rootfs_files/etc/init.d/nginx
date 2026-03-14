@@ -94,16 +94,16 @@ start_nginx() {
 
   # Construct listen block
   if [ -z "$INTERFACES" ] ; then
-    LISTEN_BLOCK="listen                  ${FRONTEND_HTTP_PORT};"
+    LISTEN_BLOCK="  listen                  ${FRONTEND_HTTP_PORT};"
   else
     LISTEN_BLOCK=""
     for interface in $INTERFACES ; do
       IP=$(ip addr show "$interface" 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d/ -f1)
       [ -z "$IP" ] && continue
-      LISTEN_BLOCK="${LISTEN_BLOCK}listen                  ${IP}:${FRONTEND_HTTP_PORT};\n"
+      LISTEN_BLOCK="${LISTEN_BLOCK}  listen                  ${IP}:${FRONTEND_HTTP_PORT};\n"
     done
     if [ -z "$LISTEN_BLOCK" ] ; then
-      LISTEN_BLOCK="listen                  ${FRONTEND_HTTP_PORT};"
+      LISTEN_BLOCK="  listen                  ${FRONTEND_HTTP_PORT};"
     fi
   fi
 
