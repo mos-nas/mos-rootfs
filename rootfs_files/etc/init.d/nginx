@@ -87,9 +87,32 @@ start_nginx() {
 
   mkdir -p /var/log/nginx /var/www/mos-plugins >/dev/null 2>&1
 
-  # Get port from Frontend and inject it into nginx.conf
-  FRONTEND_HTTP_PORT=$(jq -r '.webui.ports.http // 80' /boot/config/system.json)
-  sed -i '/# MOSHTTPPORT/{n; s/listen\s*[0-9]*/listen                  '$FRONTEND_HTTP_PORT'/}' /etc/nginx/nginx.conf
+  # Get Ports and Interfaces
+  SYSTEM_JSON="$(cat /boot/config/system.json)"
+  FRONTEND_HTTP_PORT=$(echo "$SYSTEM_JSON" | jq -r '.webui.ports.http // 80')
+  INTERFACES=$(echo "$SYSTEM_JSON" | jq -r '.webui.listen_interfaces[]? // empty')
+
+  # Construct listen block
+  if [ -z "$INTERFACES" ] ; then
+    LISTEN_BLOCK="listen                  ${FRONTEND_HTTP_PORT};"
+  else
+    LISTEN_BLOCK=""
+    for interface in $INTERFACES ; do
+      IP=$(ip addr show "$interface" 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d/ -f1)
+      [ -z "$IP" ] && continue
+      LISTEN_BLOCK="${LISTEN_BLOCK}listen                  ${IP}:${FRONTEND_HTTP_PORT};\n"
+    done
+    if [ -z "$LISTEN_BLOCK" ] ; then
+      LISTEN_BLOCK="listen                  ${FRONTEND_HTTP_PORT};"
+    fi
+  fi
+
+  # Remove all listen lines between # MOSHTTPPORT and # ENDENDMOSHTTPPORT
+  sed -i '/# MOSHTTPPORT/,/# ENDMOSHTTPPORT/{/^\s*listen/d}' /etc/nginx/nginx.conf
+
+  # Inject new LISTEN_BLOCK after # MOSHTTPPORT
+  sed -i "/# MOSHTTPPORT/a\\
+  $(echo -e "$LISTEN_BLOCK" | sed '/^$/d')" /etc/nginx/nginx.conf
 
   start-stop-daemon --start --quiet --pidfile $PID --exec $DAEMON --test > /dev/null || return 1
   start-stop-daemon --start --quiet --pidfile $PID --exec $DAEMON -- \
