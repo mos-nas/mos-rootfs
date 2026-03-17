@@ -123,4 +123,4 @@ fi
 crontab="$crontab$cron_jobs"
 
 # Inject cron list into crontab
-echo -e $crontab | awk 'NF' | crontab -
+echo -e "$crontab" | awk 'NF' | crontab -
