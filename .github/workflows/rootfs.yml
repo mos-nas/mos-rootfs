@@ -294,7 +294,7 @@ jobs:
         # Add mergerfs tools
         cd ${{ github.workspace }}
         git clone --depth 1 https://github.com/trapexit/mergerfs-tools
-        cp ${{ github.workspace }}/mergerfs-tools/src/* ${{ github.workspace }}/rootfs_files/
+        cp ${{ github.workspace }}/mergerfs-tools/src/* ${{ github.workspace }}/rootfs_files/usr/local/bin/
 
     - name: Modify rootfs
       run: |
