@@ -261,6 +261,11 @@ jobs:
         application_download "wsddn" "${WSDDN_VERSION#v}" "$WSDDN_DEB"
         application_download "wsddn" "${WSDDN_VERSION#v}" "$WSDDN_DEB_MD5" ".md5"
 
+        # Add mergerfs tools
+        cd ${{ github.workspace }}
+        git clone --depth 1 https://github.com/trapexit/mergerfs-tools
+        cp ${{ github.workspace }}/mergerfs-tools/src/* ${{ github.workspace }}/rootfs_files/
+
     - name: Modify rootfs
       run: |
         chroot ${{ github.workspace }}/rootfs /tmp/chroot-script.sh "${{ github.event.inputs.node_version }}"
