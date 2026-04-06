@@ -467,13 +467,11 @@ do
     if [ "$UNCLEAN_SHUTDOWN" == "true" ] ; then
       UNCLEAN_CHECK=$(echo $POOL_JSON | jq -r '.config.unclean_check')
       POOL_DEVICES=$(echo "$POOL_JSON" | jq -r '.data_devices | length')
-      if [ "$POOL_DEVICES" -gt "1" ] ; then
-        if [ "$UNCLEAN_CHECK" == "true" ] ; then
-          btrfs scrub start /mnt/$POOL >/dev/null 2>&1
-          notify -t "BTRFS" -m "Scrub for $POOL started" -p "alert"
-        else
-          notify -t "BTRFS" -m "Scrub for $POOL on unclean shutdown is disabled" -p "alert"
-        fi
+      if [ "$UNCLEAN_CHECK" == "true" ] ; then
+        btrfs scrub start /mnt/$POOL >/dev/null 2>&1
+        notify -t "BTRFS" -m "Scrub for $POOL started" -p "alert"
+      else
+        notify -t "BTRFS" -m "Scrub for $POOL on unclean shutdown is disabled" -p "alert"
       fi
     fi
     chown_pool "$POOL"
