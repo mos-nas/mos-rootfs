@@ -24,7 +24,7 @@ PREFIX=/usr
 [ -x $PREFIX/sbin/exportfs    ] || exit 0
 
 # MOS Custom: read shares.json
-NFS_JSON=$(jq '.[].nfs[]' // empty /boot/config/shares.json 2>/dev/null)
+NFS_JSON=$(jq '[ .[] | select(.nfs != null) | .nfs[] ] // []' /boot/config/shares.json 2>/dev/null)
 
 # Read config
 DEFAULTFILE=/etc/default/nfs-kernel-server
@@ -60,13 +60,13 @@ do_mount() {
 # See how we were called.
 case "$1" in
   start)
-    if [ ! -z "$NFS_JSON" ] ; then
+    if [ "$(echo "$NFS_JSON" | jq '. | length')" -gt 0 ]; then
       echo -e "# MOS Generated /etc/exports file, please do not edit\n" > /etc/exports
       NFS_SHARE_FSID=0
-      NFS_SHARES=$(echo "$NFS_JSON" | jq -r '.id // ""')
+      NFS_SHARES=$(echo "$NFS_JSON" | jq -r '.[].id // ""')
       for nfs_share in $NFS_SHARES
       do
-        NFS_SHARE_JSON=$(echo "$NFS_JSON" | jq -r --arg id "$nfs_share" '. | select(.id == $id)')
+        NFS_SHARE_JSON=$(echo "$NFS_JSON" | jq -r --arg id "$nfs_share" '.[] | select(.id == $id)')
         NFS_SHARE_ENABLED=$(echo "$NFS_SHARE_JSON" | jq -r '.enabled')
         [ "$NFS_SHARE_ENABLED" != "true" ] && \
           continue
