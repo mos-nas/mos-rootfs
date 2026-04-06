@@ -466,7 +466,6 @@ do
     # Start scrub if enabled on unclean shutdown
     if [ "$UNCLEAN_SHUTDOWN" == "true" ] ; then
       UNCLEAN_CHECK=$(echo $POOL_JSON | jq -r '.config.unclean_check')
-      POOL_DEVICES=$(echo "$POOL_JSON" | jq -r '.data_devices | length')
       if [ "$UNCLEAN_CHECK" == "true" ] ; then
         btrfs scrub start /mnt/$POOL >/dev/null 2>&1
         notify -t "BTRFS" -m "Scrub for $POOL started" -p "alert"
@@ -511,7 +510,7 @@ do
     chown_pool "$POOL"
   fi
   mount_script "$POOL"
-  unset POOL_JSON DISK_COUNT DISK_NO MOUNTS PARITY_COUNT POOL_ENCRYPTED ENCRYPTED_TEXT KEY EXIT_STATUS UNCLEAN_CHECK POOL_DEVICES
+  unset POOL_JSON DISK_COUNT DISK_NO MOUNTS PARITY_COUNT POOL_ENCRYPTED ENCRYPTED_TEXT KEY EXIT_STATUS UNCLEAN_CHECK
 done
 
 # Make sure to remove temporary LUKS files
