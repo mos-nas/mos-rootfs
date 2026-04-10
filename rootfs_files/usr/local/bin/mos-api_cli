@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MOS API CLI - Direct service access for cron jobs and automation
- * Usage: mos-api_cli <command> [options]
+ * Usage: mos-api-cli <command> [options]
  *
  * This bypasses HTTP/Auth by calling services directly.
  * Only works when run locally on the same machine.
@@ -45,14 +45,11 @@ const getPoolsService = () => {
 };
 
 const commands = {
-  // Commands including examples
-
   // Hub
   'hub:update': {
     description: 'Update all configured repositories',
     handler: async () => await getService('hub').updateRepositories()
   },
-
 
   // System
   'system:info': {
@@ -116,6 +113,37 @@ const commands = {
     }
   },
 
+  // Diagnostics
+  'diag': {
+    description: 'Collect diagnostics bundle (files + commands, no API needed)',
+    handler: async () => {
+      const diagnosticsService = getService('diagnostics');
+
+      console.log('Collecting diagnostics (files + commands)...');
+      const tempDir = await diagnosticsService.collect({ types: ['file', 'command'] });
+      const archivePath = await diagnosticsService.createArchive(tempDir);
+      await diagnosticsService.cleanup(tempDir);
+
+      console.log(`Diagnostics saved to: ${archivePath}`);
+      return null;
+    }
+  },
+
+  'diag:full': {
+    description: 'Collect full diagnostics (including service calls)',
+    handler: async () => {
+      const diagnosticsService = getService('diagnostics');
+
+      console.log('Collecting full diagnostics (files + commands + services)...');
+      const tempDir = await diagnosticsService.collect();
+      const archivePath = await diagnosticsService.createArchive(tempDir);
+      await diagnosticsService.cleanup(tempDir);
+
+      console.log(`Diagnostics saved to: ${archivePath}`);
+      return null;
+    }
+  },
+
   // Help
   'help': {
     description: 'Show this help message',
@@ -124,7 +152,7 @@ const commands = {
       Object.entries(commands).forEach(([cmd, info]) => {
         console.log(`  ${cmd.padEnd(20)} ${info.description}`);
       });
-      console.log('\nUsage: mos-api_cli <command>');
+      console.log('\nUsage: mos-api-cli <command> [options]');
       return null;
     }
   }
