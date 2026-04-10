@@ -22,6 +22,12 @@ fi
 
 STOP_SCHEDULE="${STOP_SCHEDULE:-QUIT/5/TERM/5/KILL/5}"
 
+# MOS custom: get system.json
+SYSTEM_JSON="$(cat /boot/config/system.json)"
+FRONTEND_HTTPS_ENABLED=$(echo "$SYSTEM_JSON" | jq -r '.webui.https_enabled')
+MOS_HOSTNAME=$(echo "$SYSTEM_JSON" | jq -r '.hostname // empty')
+LOCAL_DNS_SEARCHNAME=$(echo "$SYSTEM_JSON" | jq -r '.webui.local_dns_searchname // "local"')
+
 test -x $DAEMON || exit 0
 
 . /lib/init/vars.sh
@@ -31,7 +37,7 @@ test -x $DAEMON || exit 0
 . /usr/local/lib/functions/mos-common
 
 # Try to extract nginx pidfile
-PID=$(cat /etc/nginx/nginx.conf | grep -Ev '^\s*#' | awk 'BEGIN { RS="[;{}]" } { if ($1 == "pid") print $2 }' | head -n1)
+PID=$(cat /etc/nginx/nginx.conf 2>/dev/null | grep -Ev '^\s*#' | awk 'BEGIN { RS="[;{}]" } { if ($1 == "pid") print $2 }' | head -n1)
 if [ -z "$PID" ]; then
   PID=/run/nginx.pid
 fi
@@ -40,6 +46,50 @@ if [ -n "$ULIMIT" ]; then
   # Set ulimit if it is set in /etc/default/nginx
   ulimit $ULIMIT
 fi
+
+# MOS custom: Generate Root CA
+mos_generate_root_ca() {
+  mkdir -p /boot/config/system/ssl/root 2>/dev/null
+  rm -f /boot/config/system/ssl/root/ca.key /boot/config/system/ssl/root/ca.crt /boot/config/system/ssl/root/ca.srl 2>/dev/null
+  openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout /boot/config/system/ssl/root/ca.key \
+    -out /boot/config/system/ssl/root/ca.crt \
+    -subj "/C=AT/ST=Lower Austria/L=Lunz/O=Selfsigned/OU=MOS/CN=MOS CA" \
+    -addext "basicConstraints=critical,CA:TRUE" \
+    -addext "keyUsage=critical,keyCertSign,cRLSign" > /dev/null 2>&1
+}
+
+# MOS custom: Generate certificates
+mos_generate_nginx_certs() {
+  if [[ ! -f "/boot/config/system/ssl/root/ca.key" || ! -f "/boot/config/system/ssl/root/ca.crt" ]] ; then
+    mos_generate_root_ca
+  fi
+  rm -f /boot/config/system/ssl/nginx.key /boot/config/system/ssl/nginx.csr /boot/config/system/ssl/nginx.crt
+  # Generate Server Key and CSR
+  openssl genrsa -out /boot/config/system/ssl/nginx.key 2048
+  openssl req -new -key /boot/config/system/ssl/nginx.key \
+    -subj "/C=AT/ST=Lower Austria/L=Lunz/O=Home/OU=MOS/CN=MOSlocal" \
+    -out /boot/config/system/ssl/nginx.csr > /dev/null 2>&1
+
+  # Sign Server Cert against Root CA
+  openssl x509 -req -in /boot/config/system/ssl/nginx.csr \
+    -CA /boot/config/system/ssl/root/ca.crt -CAkey /boot/config/system/ssl/root/ca.key \
+    -CAcreateserial -out /boot/config/system/ssl/nginx.crt -days 825 -sha256 \
+    -extfile <(printf "\
+subjectAltName=DNS:${MOS_HOSTNAME}.${LOCAL_DNS_SEARCHNAME}\n\
+basicConstraints=CA:FALSE\n\
+keyUsage=digitalSignature,keyEncipherment\n\
+extendedKeyUsage=serverAuth") > /dev/null 2>&1
+}
+
+# MOS custom: Check for certificates
+mos_check_certificates() {
+  if [ ! -z "$LOCAL_DNS_SEARCHNAME" ] ; then
+    if [[ ! -f "/boot/config/system/ssl/nginx.key" || ! -f "/boot/config/system/ssl/nginx.csr" || ! -f "/boot/config/system/ssl/nginx.crt" ]] ; then
+      mos_generate_nginx_certs
+    fi
+  fi
+}
 
 # MOS custom: update Frontend
 mos_update_frontend() {
@@ -88,31 +138,56 @@ start_nginx() {
   mkdir -p /var/log/nginx /var/www/mos-plugins >/dev/null 2>&1
 
   # Get Ports and Interfaces
-  SYSTEM_JSON="$(cat /boot/config/system.json)"
   FRONTEND_HTTP_PORT=$(echo "$SYSTEM_JSON" | jq -r '.webui.ports.http // 80')
   INTERFACES=$(echo "$SYSTEM_JSON" | jq -r '.webui.listen_interfaces[]? // empty')
 
-  # Construct listen block
+  # Construct http listen block
   if [ -z "$INTERFACES" ] ; then
-    LISTEN_BLOCK="  listen                  ${FRONTEND_HTTP_PORT};"
+    HTTP_BLOCK="    listen                  ${FRONTEND_HTTP_PORT};"
   else
-    LISTEN_BLOCK=""
+    unset HTTP_BLOCK
     for interface in $INTERFACES ; do
       IP=$(ip addr show "$interface" 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d/ -f1)
       [ -z "$IP" ] && continue
-      LISTEN_BLOCK="${LISTEN_BLOCK}  listen                  ${IP}:${FRONTEND_HTTP_PORT};\n"
+      HTTP_BLOCK="${HTTP_BLOCK}    listen                  ${IP}:${FRONTEND_HTTP_PORT};\n"
     done
-    if [ -z "$LISTEN_BLOCK" ] ; then
-      LISTEN_BLOCK="  listen                  ${FRONTEND_HTTP_PORT};"
+    if [ -z "$HTTP_BLOCK" ] ; then
+      HTTP_BLOCK="    listen                  ${FRONTEND_HTTP_PORT};"
     fi
   fi
 
-  # Remove all listen lines between # MOSHTTPPORT and # ENDENDMOSHTTPPORT
-  sed -i '/# MOSHTTPPORT/,/# ENDMOSHTTPPORT/{/^\s*listen/d}' /etc/nginx/nginx.conf
+  # Construct https listen block if enabled
+  if [ "$FRONTEND_HTTPS_ENABLED" != "false" ] ; then
+    FRONTEND_HTTPS_PORT=$(echo "$SYSTEM_JSON" | jq -r '.webui.ports.https // 443')
+    mos_check_certificates
+    rm -rf /etc/nginx/ssl 2>/dev/null
+    mkdir -p /etc/nginx/ssl 2>/dev/null
+    cp /boot/config/system/ssl/nginx.crt /boot/config/system/ssl/nginx.key /etc/nginx/ssl/ 2>/dev/null
+    
+    # Construct http listen block
+    if [ -z "$INTERFACES" ] ; then
+      HTTPS_BLOCK="    listen                  ${FRONTEND_HTTPS_PORT} ssl;\n"
+    else
+      unset HTTPS_BLOCK
+      for interface in $INTERFACES ; do
+        IP=$(ip addr show "$interface" 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d/ -f1)
+        [ -z "$IP" ] && continue
+        HTTPS_BLOCK="${HTTPS_BLOCK}    listen                  ${IP}:${FRONTEND_HTTPS_PORT} ssl;\n"
+      done
+      if [ -z "$HTTPS_BLOCK" ] ; then
+        HTTPS_BLOCK="    listen                  ${FRONTEND_HTTPS_PORT} ssl;\n"
+      fi
+    fi
+    # Add certificates
+    HTTPS_BLOCK="${HTTPS_BLOCK}    ssl_certificate         /etc/nginx/ssl/nginx.crt;\n    ssl_certificate_key     /etc/nginx/ssl/nginx.key;"
+  else
+    HTTPS_BLOCK=""
+  fi
 
-  # Inject new LISTEN_BLOCK after # MOSHTTPPORT
-  sed -i "/# MOSHTTPPORT/a\\
-  $(echo -e "$LISTEN_BLOCK" | sed '/^$/d')" /etc/nginx/nginx.conf
+  # Clean up variables, hand them over and create file from template
+  HTTP_BLOCK=$(echo -e "$HTTP_BLOCK") HTTPS_BLOCK=$(echo -e "$HTTPS_BLOCK") envsubst '${HTTP_BLOCK} ${HTTPS_BLOCK}' \
+    < /etc/nginx/mos.conf \
+    > /etc/nginx/nginx.conf
 
   start-stop-daemon --start --quiet --pidfile $PID --exec $DAEMON --test > /dev/null || return 1
   start-stop-daemon --start --quiet --pidfile $PID --exec $DAEMON -- \
@@ -286,13 +361,39 @@ case "$1" in
       ;;
     esac
   ;;
+  recreatecerts)
+    log_daemon_msg "Recreating Certificates and restarting nginx" "$NAME"
+
+    # Check configuration before stopping nginx
+    if ! test_config; then
+      log_end_msg 1 # Configuration error
+      exit $?
+    fi
+
+    stop_nginx
+    case "$?" in
+      0|1)
+        mos_generate_nginx_certs
+        start_nginx
+        case "$?" in
+          0) log_end_msg 0 ;;
+          1) log_end_msg 1 ;; # Old process is still running
+          *) log_end_msg 1 ;; # Failed to start
+        esac
+      ;;
+      *)
+        # Failed to stop
+        log_end_msg 1
+      ;;
+    esac
+  ;;
   rotate)
     log_daemon_msg "Re-opening $DESC log files" "$NAME"
     rotate_logs
     log_end_msg $?
   ;;
   *)
-    echo "Usage: $NAME {start|stop|restart|update|reload|force-reload|status|configtest|rotate|upgrade}" >&2
+    echo "Usage: $NAME {start|stop|restart|reload|force-reload|status|configtest|rotate|upgrade}" >&2
     exit 3
   ;;
 esac
