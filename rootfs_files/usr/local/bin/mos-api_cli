@@ -113,6 +113,28 @@ const commands = {
     }
   },
 
+  // Plugins
+  'plugins:updatecheck': {
+    description: 'Check for plugin updates (--notify to send notification)',
+    handler: async (args) => {
+      const notify = args.includes('--notify');
+      return await getService('plugins').checkUpdates({ notify });
+    }
+  },
+
+  'plugins:update': {
+    description: 'Update plugins (optional: plugin name, --notify for updatecheck)',
+    handler: async (args) => {
+      const notify = args.includes('--notify');
+      const pluginName = args.find(a => !a.startsWith('--')) || null;
+
+      // Run updatecheck first to refresh versions.json
+      await getService('plugins').checkUpdates({ notify });
+
+      return await getService('plugins').updatePlugins(pluginName);
+    }
+  },
+
   // Diagnostics
   'diag': {
     description: 'Collect diagnostics bundle (files + commands, no API needed)',
