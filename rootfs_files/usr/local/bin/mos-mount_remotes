@@ -1,15 +1,35 @@
 #!/bin/sh
 PATH=$PATH:/usr/local/bin
-
 # Include mos-common functions
 . /usr/local/lib/functions/mos-common
+
+# Resolve a hostname to an IP address.
+# Tries getent, then nslookup, then ping -c1 as fallbacks.
+resolve_host() {
+    local host="$1"
+    local ip
+
+    # getent is preferred - works with /etc/hosts, DNS, mDNS, etc.
+    ip=$(getent ahosts "$host" 2>/dev/null | awk '/STREAM/ { print $1; exit }')
+    [ -n "$ip" ] && { echo "$ip"; return 0; }
+
+    # nslookup fallback
+    ip=$(nslookup "$host" 2>/dev/null | awk '/^Address: / { print $2; exit }')
+    [ -n "$ip" ] && { echo "$ip"; return 0; }
+
+    # ping fallback (parses the IP from the first line)
+    ip=$(ping -c1 -W2 "$host" 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    [ -n "$ip" ] && { echo "$ip"; return 0; }
+
+    return 1
+}
 
 # Get json and write it into variable
 REMOTES_JSON="$(cat /boot/config/remotes.json 2>/dev/null)"
 if [ -z "$1" ]; then
-  REMOTES=$(echo "$REMOTES_JSON" | jq -r '.[] | .name' 2>/dev/null)
+    REMOTES=$(echo "$REMOTES_JSON" | jq -r '.[] | .name' 2>/dev/null)
 else
-  REMOTES="$1"
+    REMOTES="$1"
 fi
 
 # Ensure remotes directory exists
@@ -17,73 +37,76 @@ mkdir -p /mnt/remotes
 
 IFS=$'\n'
 for remote_name in $REMOTES; do
-  # Extract remote json
-  REMOTE_JSON=$(echo "$REMOTES_JSON" | jq -r ".[] | select(.name == \"$remote_name\")")
-  REMOTE_AUTOMOUNT=$(echo "$REMOTE_JSON" | jq -r '.auto_mount')
-  if [ "$REMOTE_AUTOMOUNT" = "true" ]; then
-    # Extract values from JSON with default values for null
-    type=$(echo "$REMOTE_JSON" | jq -r '.type')
-    server=$(echo "$REMOTE_JSON" | jq -r '.server')
-    share=$(echo "$REMOTE_JSON" | jq -r '.share')
-    username=$(echo "$REMOTE_JSON" | jq -r '.username')
-    password=$(echo "$REMOTE_JSON" | jq -r '.password')
-    domain=$(echo "$REMOTE_JSON" | jq -r '.domain')
-    version=$(echo "$REMOTE_JSON" | jq -r '.version // "3.0"')
-    uid=$(echo "$REMOTE_JSON" | jq -r '.uid')
-    gid=$(echo "$REMOTE_JSON" | jq -r '.gid')
+    # Extract remote json
+    REMOTE_JSON=$(echo "$REMOTES_JSON" | jq -r ".[] | select(.name == \"$remote_name\")")
+    REMOTE_AUTOMOUNT=$(echo "$REMOTE_JSON" | jq -r '.auto_mount')
 
-    # Check if share path is already mounted
-    if findmnt /mnt/remotes/${server}/${share} >/dev/null 2>&1 ; then
-      logger "Already found mounted share at: /mnt/remotes/${server}/${share}, skipping"
-      continue
+    if [ "$REMOTE_AUTOMOUNT" = "true" ]; then
+        # Extract values from JSON with default values for null
+        type=$(echo "$REMOTE_JSON" | jq -r '.type')
+        server=$(echo "$REMOTE_JSON" | jq -r '.server')
+        share=$(echo "$REMOTE_JSON" | jq -r '.share')
+        username=$(echo "$REMOTE_JSON" | jq -r '.username')
+        password=$(echo "$REMOTE_JSON" | jq -r '.password')
+        domain=$(echo "$REMOTE_JSON" | jq -r '.domain')
+        version=$(echo "$REMOTE_JSON" | jq -r '.version // "3.0"')
+        uid=$(echo "$REMOTE_JSON" | jq -r '.uid')
+        gid=$(echo "$REMOTE_JSON" | jq -r '.gid')
+
+        # Resolve hostname to IP so the kernel mount code doesn't have to.
+        # Keep $server for directory naming; use $server_ip for the actual mount.
+        server_ip=$(resolve_host "$server")
+        if [ -z "$server_ip" ]; then
+            logger "Cannot resolve host: $server - skipping"
+            continue
+        fi
+        if [ "$server_ip" != "$server" ]; then
+            logger "Resolved $server -> $server_ip"
+        fi
+
+        # Check if share path is already mounted (keyed on FQDN path)
+        if findmnt /mnt/remotes/${server}/${share} >/dev/null 2>&1; then
+            logger "Already found mounted share at: /mnt/remotes/${server}/${share}, skipping"
+            continue
+        fi
+
+        # Create share directory (use FQDN for human-readable paths)
+        [ ! -d /mnt/remotes/${server}/${share} ] && \
+            mkdir -p /mnt/remotes/${server}/${share}
+
+        # Mount using resolved IP
+        if [ "$type" = "smb" ]; then
+            if [ "$username" != "null" ]; then
+                DECRYPTED_PASSWORD="$(decrypt_password "${password}" "remotes")"
+                SMB_OPTIONS="username=${username},password=${DECRYPTED_PASSWORD},vers=${version},iocharset=utf8,noperm"
+                unset DECRYPTED_PASSWORD
+            else
+                SMB_OPTIONS="guest,vers=${version},iocharset=utf8,noperm"
+            fi
+            [ "$domain" != "null" ] && SMB_OPTIONS="$SMB_OPTIONS,domain=${domain}"
+            [ "$uid" != "null" ]    && SMB_OPTIONS="$SMB_OPTIONS,uid=${uid}"
+            [ "$gid" != "null" ]    && SMB_OPTIONS="$SMB_OPTIONS,gid=${gid}"
+
+            logger "Mounting SAMBA remote share: $share from host: $server ($server_ip)"
+            mount -t cifs //${server_ip}/${share} /mnt/remotes/${server}/${share} -o ${SMB_OPTIONS}
+            EXIT_STATUS=$?
+            if [ "$EXIT_STATUS" != "0" ]; then
+                logger "Error mounting SAMBA share: $share from server: $server ($server_ip)"
+                rmdir /mnt/remotes/${server}/${share}
+            fi
+
+        elif [ "$type" = "nfs" ]; then
+            NFS_OPTIONS="vers=4"
+            [ "$uid" != "null" ] && NFS_OPTIONS="$NFS_OPTIONS,uid=${uid}"
+            [ "$gid" != "null" ] && NFS_OPTIONS="$NFS_OPTIONS,gid=${gid}"
+
+            logger "Mounting NFS remote share: $share from host: $server ($server_ip)"
+            mount -t nfs ${server_ip}:/${share} /mnt/remotes/${server}/${share} -o ${NFS_OPTIONS}
+            EXIT_STATUS=$?
+            if [ "$EXIT_STATUS" != "0" ]; then
+                logger "Error mounting NFS share: $share from server: $server ($server_ip)"
+                rmdir /mnt/remotes/${server}/${share}
+            fi
+        fi
     fi
-
-    # Create share directory
-    [ ! -d /mnt/remotes/${server}/${share} ] && \
-      mkdir -p /mnt/remotes/${server}/${share}
-
-    # Check if share is smb or nfs and mount remote share
-    if [ "$type" = "smb" ] ; then
-      if [ "$username" != "null" ] ; then
-        DECRYPTED_PASSWORD="$(decrypt_password "${password}" "remotes")"
-        SMB_OPTIONS="username=${username},password=${DECRYPTED_PASSWORD},vers=${version},iocharset=utf8,noperm"
-        unset DECRYPTED_PASSWORD
-      else
-        SMB_OPTIONS="guest,vers=${version},iocharset=utf8,noperm"
-      fi
-
-      [ "$domain" != "null" ] && \
-        SMB_OPTIONS="$SMB_OPTIONS,domain=${domain}"
-
-      [ "$uid" != "null" ] && \
-        SMB_OPTIONS="$SMB_OPTIONS,uid=${uid}"
-
-      [ "$gid" != "null" ] && \
-        SMB_OPTIONS="$SMB_OPTIONS,gid=${gid}"
-
-      logger "Mounting SAMBA remote share: $share from host: $server"
-      mount -t cifs //${server}/${share} /mnt/remotes/${server}/${share} -o ${SMB_OPTIONS}
-      EXIT_STATUS=$?
-      if [ "$EXIT_STATUS" != "0" ] ; then
-        logger "Error mounting SAMBA share: $share from server: $server"
-        rmdir /mnt/remotes/${server}/${share}
-      fi
-    elif [ "$type" = "nfs" ] ; then
-      NFS_OPTIONS="vers=4"
-
-      [ "$uid" != "null" ] && \
-        NFS_OPTIONS="$NFS_OPTIONS,uid=${uid}"
-
-      [ "$gid" != "null" ] && \
-        NFS_OPTIONS="$NFS_OPTIONS,gid=${gid}"
-
-      logger "Mounting NFS remote share: $share from host: $server"
-      mount -t nfs ${server}:/${share} /mnt/remotes/${server}/${share} -o ${NFS_OPTIONS}
-      EXIT_STATUS=$?
-      if [ "$EXIT_STATUS" != "0" ] ; then
-        logger "Error mounting NFS share: $share from server: $server"
-        rmdir /mnt/remotes/${server}/${share}
-      fi
-    fi
-  fi
 done
