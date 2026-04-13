@@ -32,7 +32,14 @@ for remote_name in $REMOTES; do
     uid=$(echo "$REMOTE_JSON" | jq -r '.uid')
     gid=$(echo "$REMOTE_JSON" | jq -r '.gid')
 
-    # Check if share path is already mounted
+    # Resolve hostname to IP
+    mount_server="$server"
+    resolved_ip=$(getent ahostsv4 "$server" 2>/dev/null | head -1 | awk '{print $1}')
+    if [ -n "$resolved_ip" ] && [ "$resolved_ip" != "$server" ]; then
+      mount_server="$resolved_ip"
+    fi
+
+    # Check if share path is already mounted (use original server name for path)
     if findmnt /mnt/remotes/${server}/${share} >/dev/null 2>&1 ; then
       logger "Already found mounted share at: /mnt/remotes/${server}/${share}, skipping"
       continue
@@ -61,8 +68,8 @@ for remote_name in $REMOTES; do
       [ "$gid" != "null" ] && \
         SMB_OPTIONS="$SMB_OPTIONS,gid=${gid}"
 
-      logger "Mounting SAMBA remote share: $share from host: $server"
-      mount -t cifs //${server}/${share} /mnt/remotes/${server}/${share} -o ${SMB_OPTIONS}
+      logger "Mounting SAMBA remote share: $share from host: $server ($mount_server)"
+      mount -t cifs //${mount_server}/${share} /mnt/remotes/${server}/${share} -o ${SMB_OPTIONS}
       EXIT_STATUS=$?
       if [ "$EXIT_STATUS" != "0" ] ; then
         logger "Error mounting SAMBA share: $share from server: $server"
@@ -77,8 +84,8 @@ for remote_name in $REMOTES; do
       [ "$gid" != "null" ] && \
         NFS_OPTIONS="$NFS_OPTIONS,gid=${gid}"
 
-      logger "Mounting NFS remote share: $share from host: $server"
-      mount -t nfs ${server}:/${share} /mnt/remotes/${server}/${share} -o ${NFS_OPTIONS}
+      logger "Mounting NFS remote share: $share from host: $server ($mount_server)"
+      mount -t nfs ${mount_server}:/${share} /mnt/remotes/${server}/${share} -o ${NFS_OPTIONS}
       EXIT_STATUS=$?
       if [ "$EXIT_STATUS" != "0" ] ; then
         logger "Error mounting NFS share: $share from server: $server"
