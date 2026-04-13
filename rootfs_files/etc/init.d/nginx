@@ -91,6 +91,19 @@ mos_check_certificates() {
   fi
 }
 
+# MOS custom: update DNS search domain in resolv.conf
+mos_update_dns_search() {
+  if [ ! -z "$LOCAL_DNS_SEARCHNAME" ] ; then
+    RESOLVCONF_BASE="/etc/resolvconf/resolv.conf.d/base"
+    # Remove any existing search line we previously set, then add new one
+    if [ -f "$RESOLVCONF_BASE" ] ; then
+      sed -i '/^search /d' "$RESOLVCONF_BASE"
+    fi
+    echo "search ${LOCAL_DNS_SEARCHNAME}" >> "$RESOLVCONF_BASE"
+    resolvconf -u 2>/dev/null
+  fi
+}
+
 # MOS custom: update Frontend
 mos_update_frontend() {
   # Set curl Header
@@ -136,6 +149,9 @@ start_nginx() {
   #   2 if daemon could not be started
 
   mkdir -p /var/log/nginx /var/www/mos-plugins >/dev/null 2>&1
+
+  # Update DNS search domain
+  mos_update_dns_search
 
   # Get Ports and Interfaces
   FRONTEND_HTTP_PORT=$(echo "$SYSTEM_JSON" | jq -r '.webui.ports.http // 80')
