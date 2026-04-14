@@ -98,8 +98,8 @@ do
       else
         COMPOSE_ARGS="-f compose.yaml"
       fi
-      docker-compose down
-      docker-compose pull
+      docker-compose $COMPOSE_ARGS down
+      docker-compose $COMPOSE_ARGS pull
       docker-compose $COMPOSE_ARGS up -d --remove-orphans
       CONTAINER_UPDATES+=("$stack")
     else
