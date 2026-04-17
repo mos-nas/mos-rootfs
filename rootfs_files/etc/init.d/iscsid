@@ -31,7 +31,7 @@ check_config() {
 }
 
 initiator_name() {
-  INITIATOR_NAME=$(echo $ISCSI_CONFIG | jq -r '.initiator.name')
+  INITIATOR_NAME=$(echo "$ISCSI_CONFIG" | jq -r '.initiator.name')
   echo "InitiatorName=$INITIATOR_NAME" > /etc/iscsi/initiatorname.iscsi
 }
 

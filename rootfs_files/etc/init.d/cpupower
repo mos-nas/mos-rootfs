@@ -35,9 +35,9 @@ CPUPOWER_OPTIONS=""
 
 # Set defaults
 SYSTEM_JSON=$(jq '.' /boot/config/system.json)
-GOVERNOR=$(echo $SYSTEM_JSON | jq -r '.cpufreq.governor')
-MAX_SPEED=$(echo $SYSTEM_JSON | jq -r '.cpufreq.max_speed')
-MIN_SPEED=$(echo $SYSTEM_JSON | jq -r '.cpufreq.min_speed')
+GOVERNOR=$(echo "$SYSTEM_JSON" | jq -r '.cpufreq.governor')
+MAX_SPEED=$(echo "$SYSTEM_JSON" | jq -r '.cpufreq.max_speed')
+MIN_SPEED=$(echo "$SYSTEM_JSON" | jq -r '.cpufreq.min_speed')
 
 check_governor_avail() {
   info="/sys/devices/system/cpu/cpu${1}/cpufreq/scaling_available_governors"
@@ -46,7 +46,7 @@ check_governor_avail() {
   # MOS Custom: Fallback, try to use performance if governor is not found and inject to system.json
   elif [ -f $info ] && grep -q "performance" $info ; then
     GOVERNOR="performance"
-    echo $SYSTEM_JSON | jq '.cpufreq.governor = "performance"' > /tmp/system.temp.json && mv /tmp/system.temp.json /boot/config/system.json >/dev/null 2>&1
+    echo "$SYSTEM_JSON" | jq '.cpufreq.governor = "performance"' > /tmp/system.temp.json && mv /tmp/system.temp.json /boot/config/system.json >/dev/null 2>&1
     return 0;
   fi
   return 1;

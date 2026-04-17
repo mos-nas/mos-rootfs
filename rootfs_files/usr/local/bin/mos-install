@@ -175,8 +175,8 @@ GRUB_JSON=$(curl -s --request GET \
   "${HEADER[@]}" \
   --header "X-GitHub-Api-Version: 2022-11-28")
 
-GRUB_DEB=$(echo $GRUB_JSON | jq -r --arg arch "$DEB_ARCH" '.assets[] | select(.name | startswith("mos-grub") and endswith($arch + ".deb")) | .id')
-GRUB_DEB_MD5=$(echo $GRUB_JSON | jq -r --arg arch "$DEB_ARCH" '.assets[] | select(.name | startswith("mos-grub") and endswith($arch + ".deb.md5")) | .id')
+GRUB_DEB=$(echo "$GRUB_JSON" | jq -r --arg arch "$DEB_ARCH" '.assets[] | select(.name | startswith("mos-grub") and endswith($arch + ".deb")) | .id')
+GRUB_DEB_MD5=$(echo "$GRUB_JSON" | jq -r --arg arch "$DEB_ARCH" '.assets[] | select(.name | startswith("mos-grub") and endswith($arch + ".deb.md5")) | .id')
 
 # Download GRUB from mos-grub repo
 download_asset "$GRUB_DEB"

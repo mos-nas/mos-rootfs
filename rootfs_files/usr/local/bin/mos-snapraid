@@ -57,8 +57,8 @@ if ! findmnt /mnt/$1 >/dev/null 2>&1 ; then
 fi
 
 # Get Disks
-DISKS=$(echo $POOL_INFO | jq -r '.data_devices[].id')
-PARITY=$(echo $POOL_INFO | jq -r '.parity_devices[].id')
+DISKS=$(echo "$POOL_INFO" | jq -r '.data_devices[].id')
+PARITY=$(echo "$POOL_INFO" | jq -r '.parity_devices[].id')
 
 # Get power status from disks
 disk_array=()

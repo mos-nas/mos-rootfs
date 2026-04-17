@@ -7,12 +7,12 @@
 if [ -z "$1" ] ; then
   CONTAINER_UPDATES=()
   CONTAINERS_JSON=$(cat /var/lib/docker/mos/containers 2>/dev/null)
-  CONTAINER_NAMES=$(echo $CONTAINERS_JSON | jq -r '.[].name')
+  CONTAINER_NAMES=$(echo "$CONTAINERS_JSON" | jq -r '.[].name')
   COMPOSE_JSON=$(cat /var/lib/docker/mos/compose-containers 2>/dev/null)
-  COMPOSE_NAMES=$(echo $COMPOSE_JSON | jq -r '.[].services.[].container')
+  COMPOSE_NAMES=$(echo "$COMPOSE_JSON" | jq -r '.[].services.[].container')
 else
   CONTAINERS_JSON=$(cat /var/lib/docker/mos/containers 2>/dev/null)
-  if echo $CONTAINERS_JSON | jq -e --arg name "$1" '.[] | select(.name == $name)' >/dev/null ; then
+  if echo "$CONTAINERS_JSON" | jq -e --arg name "$1" '.[] | select(.name == $name)' >/dev/null ; then
     CONTAINER_NAMES=$1
   else
     echo "Container $1 not in container list found"
@@ -38,9 +38,9 @@ fi
 for container in $CONTAINER_NAMES
 do
   # Get necessary infromations for check and if there is already a update available
-  REPO=$(echo $CONTAINERS_JSON | jq -r --arg name "$container" '.[] | select(.name == $name) | .repo')
-  LOCAL_SHA=$(echo $CONTAINERS_JSON | jq -r --arg name "$container" '.[] | select(.name == $name) | .local')
-  REMOTE_SHA_OLD=$(echo $CONTAINERS_JSON | jq -r --arg name "$container" '.[] | select(.name == $name) | .remote')
+  REPO=$(echo "$CONTAINERS_JSON" | jq -r --arg name "$container" '.[] | select(.name == $name) | .repo')
+  LOCAL_SHA=$(echo "$CONTAINERS_JSON" | jq -r --arg name "$container" '.[] | select(.name == $name) | .local')
+  REMOTE_SHA_OLD=$(echo "$CONTAINERS_JSON" | jq -r --arg name "$container" '.[] | select(.name == $name) | .remote')
 
   # Check if a tag is applied, if not add :latest
   if echo "$REPO" | grep -q ':' ; then
@@ -113,10 +113,10 @@ done
 for container in $COMPOSE_NAMES
 do
   # Get necessary infromations for check and if there is already a update available
-  STACK=$(echo $COMPOSE_JSON | jq -r --arg name "$container" '.[] | select(.services[]?.container == $name) | .stack')
-  REPO=$(echo $COMPOSE_JSON | jq -r --arg name "$container" '.[].services.[] | select(.container == $name) | .repo')
-  LOCAL_SHA=$(echo $COMPOSE_JSON | jq -r --arg name "$container" '.[].services.[] | select(.container == $name) | .local')
-  REMOTE_SHA_OLD=$(echo $COMPOSE_JSON | jq -r --arg name "$container" '.[].services.[] | select(.container == $name) | .remote')
+  STACK=$(echo "$COMPOSE_JSON" | jq -r --arg name "$container" '.[] | select(.services[]?.container == $name) | .stack')
+  REPO=$(echo "$COMPOSE_JSON" | jq -r --arg name "$container" '.[].services.[] | select(.container == $name) | .repo')
+  LOCAL_SHA=$(echo "$COMPOSE_JSON" | jq -r --arg name "$container" '.[].services.[] | select(.container == $name) | .local')
+  REMOTE_SHA_OLD=$(echo "$COMPOSE_JSON" | jq -r --arg name "$container" '.[].services.[] | select(.container == $name) | .remote')
 
   # Check if a tag is applied, if not add :latest
   if echo "$REPO" | grep -q ':' ; then

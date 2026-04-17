@@ -219,11 +219,11 @@ for POOL in $POOLS
 do
   POOL=$(echo "$POOL" | xargs)
   POOL_JSON=$(echo "$POOLS_JSON" | jq --arg pool_name "$POOL" '. | select(.name == $pool_name)')
-  if [ -z "$1" ] && [ "$(echo $POOL_JSON | jq -r '.automount')" != "true" ] ; then
+  if [ -z "$1" ] && [ "$(echo "$POOL_JSON" | jq -r '.automount')" != "true" ] ; then
     continue
   fi
-  POOL_TYPE=$(echo $POOL_JSON | jq -r '.type')
-  POOL_ENCRYPTED=$(echo $POOL_JSON | jq '.config.encrypted')
+  POOL_TYPE=$(echo "$POOL_JSON" | jq -r '.type')
+  POOL_ENCRYPTED=$(echo "$POOL_JSON" | jq '.config.encrypted')
   if [ "$POOL_ENCRYPTED" == "true" ] ; then
     ENCRYPTED_TEXT=" encrypted"
     if [ ! -z "$2" ] ; then 
@@ -232,10 +232,10 @@ do
   fi
   if [ "$POOL_TYPE" == "mergerfs" ] ; then
     create_pool_directory "$POOL" "$POOL_TYPE" || { echo "Pool $POOL already mounted" ; continue ; }
-    CREATE_POLICY=$(echo $POOL_JSON | jq -r '.config.policies.create')
-    SEARCH_POLICY=$(echo $POOL_JSON | jq -r '.config.policies.search')
+    CREATE_POLICY=$(echo "$POOL_JSON" | jq -r '.config.policies.create')
+    SEARCH_POLICY=$(echo "$POOL_JSON" | jq -r '.config.policies.search')
     POOL_SHARED=$(echo "$POOL_JSON" | jq -r '.config.shared // false')
-    for data_slot in $(echo $POOL_JSON | jq -r '.data_devices[].slot')
+    for data_slot in $(echo "$POOL_JSON" | jq -r '.data_devices[].slot')
     do
       mergerfs_create_disk_directory "$POOL" "$data_slot"
       DISK_DETAILS=$(echo "$POOL_JSON" | jq -r --arg data_slot "$data_slot" '.data_devices[] | select((.slot | tostring) == $data_slot)')
@@ -260,9 +260,9 @@ do
     if [ "$POOL_SHARED" = "true" ] ; then
       make_shared "$POOL"
     fi
-    PARITY_COUNT=$(echo $POOL_JSON | jq -r '.parity_devices | length')
+    PARITY_COUNT=$(echo "$POOL_JSON" | jq -r '.parity_devices | length')
     if [ "$PARITY_COUNT" != "0" ] ; then
-      for parity_slot in $(echo $POOL_JSON | jq -r '.parity_devices[].slot')
+      for parity_slot in $(echo "$POOL_JSON" | jq -r '.parity_devices[].slot')
       do
         PARITY_DETAILS=$(echo "$POOL_JSON" | jq -r --arg parity_slot "$parity_slot" '.parity_devices[] | select((.slot | tostring) == $parity_slot)')
         PARITY_ID=$(echo "$PARITY_DETAILS" | jq -r '.id')
@@ -274,7 +274,7 @@ do
     fi
     # Start SnapRAID check if enabled
     if [ "$UNCLEAN_SHUTDOWN" == "true" ] ; then
-      UNCLEAN_CHECK=$(echo $POOL_JSON | jq -r '.config.unclean_check')
+      UNCLEAN_CHECK=$(echo "$POOL_JSON" | jq -r '.config.unclean_check')
       if [ "$PARITY_COUNT" != "0" ] ; then
         if [ "$UNCLEAN_CHECK" == "true" ] ; then
           mos-snapraid $POOL check >/dev/null 2>&1
@@ -284,9 +284,9 @@ do
         fi
       fi
     fi
-    PATH_RULE_COUNT=$(echo $POOL_JSON | jq -r '.config.path_rules | length')
+    PATH_RULE_COUNT=$(echo "$POOL_JSON" | jq -r '.config.path_rules | length')
     if [ "$PATH_RULE_COUNT" != "0" ] ; then
-      for path in $(echo $POOL_JSON | jq -r '.config.path_rules[].path')
+      for path in $(echo "$POOL_JSON" | jq -r '.config.path_rules[].path')
       do
         RULE_TARGETS=$(echo "$POOL_JSON" | jq -r --arg path "$path" '.config.path_rules[] | select(.path == $path) | .target_devices[]')
         if [ "$RULE_TARGETS" != "0" ] ; then
@@ -366,10 +366,10 @@ do
       continue
     fi
 
-    CREATE_POLICY=$(echo $POOL_JSON | jq -r '.config.policies.create')
-    SEARCH_POLICY=$(echo $POOL_JSON | jq -r '.config.policies.search')
+    CREATE_POLICY=$(echo "$POOL_JSON" | jq -r '.config.policies.create')
+    SEARCH_POLICY=$(echo "$POOL_JSON" | jq -r '.config.policies.search')
     POOL_SHARED=$(echo "$POOL_JSON" | jq -r '.config.shared // false')
-    for data_slot in $(echo $POOL_JSON | jq -r '.data_devices[].slot')
+    for data_slot in $(echo "$POOL_JSON" | jq -r '.data_devices[].slot')
     do
       mergerfs_create_disk_directory "$POOL" "$data_slot"
       DISK_DETAILS=$(echo "$POOL_JSON" | jq -r --arg data_slot "$data_slot" '.data_devices[] | select((.slot | tostring) == $data_slot)')
@@ -402,9 +402,9 @@ do
     if [ "$POOL_SHARED" = "true" ] ; then
       make_shared "$POOL"
     fi
-    PATH_RULE_COUNT=$(echo $POOL_JSON | jq -r '.config.path_rules | length')
+    PATH_RULE_COUNT=$(echo "$POOL_JSON" | jq -r '.config.path_rules | length')
     if [ "$PATH_RULE_COUNT" != "0" ] ; then
-      for path in $(echo $POOL_JSON | jq -r '.config.path_rules[].path')
+      for path in $(echo "$POOL_JSON" | jq -r '.config.path_rules[].path')
       do
         RULE_TARGETS=$(echo "$POOL_JSON" | jq -r --arg path "$path" '.config.path_rules[] | select(.path == $path) | .target_devices[]')
         if [ "$RULE_TARGETS" != "0" ] ; then
@@ -417,7 +417,7 @@ do
     fi
     # Start parity check if enabled
     if [ "$UNCLEAN_SHUTDOWN" == "true" ] ; then
-      UNCLEAN_CHECK=$(echo $POOL_JSON | jq -r '.config.unclean_check')
+      UNCLEAN_CHECK=$(echo "$POOL_JSON" | jq -r '.config.unclean_check')
       if [ "$PARITY_COUNT" != "0" ] ; then
         if [ "$UNCLEAN_CHECK" == "true" ] ; then
           { echo "check" > /proc/nmdcmd; } 2>/dev/null
@@ -428,7 +428,7 @@ do
       fi
     fi
     # Set md write mode
-    MD_WRITEMODE=$(echo $POOL_JSON | jq -r '.config.md_writemode // "normal"')
+    MD_WRITEMODE=$(echo "$POOL_JSON" | jq -r '.config.md_writemode // "normal"')
     if [ "$MD_WRITEMODE" == "normal" ] ; then
       echo "set md_write_method 0" > /proc/nmdcmd
     elif [ "$MD_WRITEMODE" == "turbo" ] ; then
@@ -443,7 +443,7 @@ do
     DISK_ID=$(echo "$POOL_JSON" | jq -r --arg disk_no "$DISK_NO" '.data_devices[0].id')
     POOL_SHARED=$(echo "$POOL_JSON" | jq -r '.config.shared // false')
     if [ "$POOL_ENCRYPTED" == "true" ] ; then
-      for data_slot in $(echo $POOL_JSON | jq -r '.data_devices[].slot')
+      for data_slot in $(echo "$POOL_JSON" | jq -r '.data_devices[].slot')
       do
         DISK_DETAILS=$(echo "$POOL_JSON" | jq -r --arg data_slot "$data_slot" '.data_devices[] | select((.slot | tostring) == $data_slot)')
         DISK_ID_BTRFS=$(echo "$DISK_DETAILS" | jq -r '.id')
@@ -465,7 +465,7 @@ do
     fi
     # Start scrub if enabled on unclean shutdown
     if [ "$UNCLEAN_SHUTDOWN" == "true" ] ; then
-      UNCLEAN_CHECK=$(echo $POOL_JSON | jq -r '.config.unclean_check')
+      UNCLEAN_CHECK=$(echo "$POOL_JSON" | jq -r '.config.unclean_check')
       if [ "$UNCLEAN_CHECK" == "true" ] ; then
         btrfs scrub start /mnt/$POOL >/dev/null 2>&1
         notify -t "BTRFS" -m "Scrub for $POOL started" -p "alert"

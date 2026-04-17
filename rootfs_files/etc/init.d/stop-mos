@@ -76,10 +76,10 @@ stop_mos() {
   if [ -f /var/run/docker.pid ] ; then
     /etc/init.d/docker stop
   fi
-  LXC_ENABLED=$(echo $LXC_JSON | jq -r '.enabled')
+  LXC_ENABLED=$(echo "$LXC_JSON" | jq -r '.enabled')
   if [ "$LXC_ENABLED" = "true" ] ; then
     /etc/init.d/lxc stop
-    LXC_BRIDGE=$(echo $LXC_JSON | jq -r '.bridge')
+    LXC_BRIDGE=$(echo "$LXC_JSON" | jq -r '.bridge')
     if [ "$LXC_BRIDGE" = "true" ]; then
       /etc/init.d/lxc-net stop
     fi
@@ -105,8 +105,8 @@ stop_mos() {
   if [ -f /var/run/dnsmasq/dnsmasq.pid ] ; then
     /etc/init.d/dnsmasq stop
   fi
-  if [ ! -z "$(echo $POOLS_JSON | jq -r '.[] | select(.type == "nonraid") // ""')" ] ; then
-    POOL=$(echo $POOLS_JSON | jq -r '.[] | select(.type == "nonraid") | .name')
+  if [ ! -z "$(echo "$POOLS_JSON" | jq -r '.[] | select(.type == "nonraid") // ""')" ] ; then
+    POOL=$(echo "$POOLS_JSON" | jq -r '.[] | select(.type == "nonraid") | .name')
     umount /mnt/$POOL >/dev/null 2>&1
     rmdir /mnt/$POOL >/dev/null 2>&1
     for disk in /var/mergerfs/$POOL/*

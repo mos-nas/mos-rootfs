@@ -10,15 +10,15 @@ CONTAINER_UPDATES=()
 # Check if argument was passed over (update single or all containers)
 if [ -z "$1" ] ; then
   CONTAINERS_JSON=$(cat /var/lib/docker/mos/containers)
-  CONTAINER_NAMES=$(echo $CONTAINERS_JSON | jq -r '.[].name')
+  CONTAINER_NAMES=$(echo "$CONTAINERS_JSON" | jq -r '.[].name')
   COMPOSE_JSON=$(cat /var/lib/docker/mos/compose-containers)
-  COMPOSE_STACKS=$(echo $COMPOSE_JSON | jq -r '.[].stack')
+  COMPOSE_STACKS=$(echo "$COMPOSE_JSON" | jq -r '.[].stack')
 elif [ "$3" = "compose" ] ; then
   COMPOSE_JSON=$(cat /var/lib/docker/mos/compose-containers)
-  COMPOSE_STACKS=$(echo $COMPOSE_JSON | jq -r --arg name "$1" '.[] | select(.stack == $name) | .stack')
+  COMPOSE_STACKS=$(echo "$COMPOSE_JSON" | jq -r --arg name "$1" '.[] | select(.stack == $name) | .stack')
 else
   CONTAINERS_JSON=$(cat /var/lib/docker/mos/containers)
-  if echo $CONTAINERS_JSON | jq -e --arg name "$1" '.[] | select(.name == $name)' >/dev/null ; then
+  if echo "$CONTAINERS_JSON" | jq -e --arg name "$1" '.[] | select(.name == $name)' >/dev/null ; then
     CONTAINER_NAMES=$1
   else
     echo "Container $1 not in container list found"
@@ -60,12 +60,12 @@ fi
 # Loop through containers
 for container in $CONTAINER_NAMES
 do
-  LOCAL_SHA=$(echo $CONTAINERS_JSON | jq -r --arg name "$container" '.[] | select(.name == $name) | .local')
+  LOCAL_SHA=$(echo "$CONTAINERS_JSON" | jq -r --arg name "$container" '.[] | select(.name == $name) | .local')
   # When force_update is passed over set remote SHA to force_update to always trigger an update
   if [ "$2" = "force_update" ] ; then
     REMOTE_SHA="force_update"
   else
-    REMOTE_SHA=$(echo $CONTAINERS_JSON | jq -r --arg name "$container" '.[] | select(.name == $name) | .remote')
+    REMOTE_SHA=$(echo "$CONTAINERS_JSON" | jq -r --arg name "$container" '.[] | select(.name == $name) | .remote')
   fi
   # Compare local and remote SHA with error handling if no container JSON is found
   if [ "$LOCAL_SHA" != "$REMOTE_SHA" ] ; then
@@ -82,7 +82,7 @@ done
 # Loop through compose stacks
 for stack in $COMPOSE_STACKS
 do
-  STACK_JSON=$(echo $COMPOSE_JSON | jq -r --arg name "$stack" '.[] | select(.stack == $name)')
+  STACK_JSON=$(echo "$COMPOSE_JSON" | jq -r --arg name "$stack" '.[] | select(.stack == $name)')
   STACK_UPDATE=false
   if [ "$2" = "force_update" ] ; then
     STACK_UPDATE=true

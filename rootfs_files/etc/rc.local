@@ -17,16 +17,16 @@ fi
 SYSTEM=$(cat /boot/config/system.json)
 
 # Set keyboard layout
-KEYMAP=$(echo $SYSTEM | jq -r '.keymap')
+KEYMAP=$(echo "$SYSTEM" | jq -r '.keymap')
 loadkeys $KEYMAP
 
 # Set display timeout
-SETTERM_SETTINGS=$(echo $SYSTEM | jq -r '.display')
+SETTERM_SETTINGS=$(echo "$SYSTEM" | jq -r '.display')
 if [ "$SETTERM_SETTINGS" != "" ] && [ "$SETTERM_SETTINGS" != "null" ] ; then
   SETTERM_CMD=""
-  SETTERM_TIMEOUT=$(echo $SETTERM_SETTINGS | jq -r '.timeout // empty')
-  SETTERM_POWERSAVE=$(echo $SETTERM_SETTINGS | jq -r '.powersave // empty')
-  SETTERM_POWERDOWN=$(echo $SETTERM_SETTINGS | jq -r '.powerdown // empty')
+  SETTERM_TIMEOUT=$(echo "$SETTERM_SETTINGS" | jq -r '.timeout // empty')
+  SETTERM_POWERSAVE=$(echo "$SETTERM_SETTINGS" | jq -r '.powersave // empty')
+  SETTERM_POWERDOWN=$(echo "$SETTERM_SETTINGS" | jq -r '.powerdown // empty')
   [ ! -z "$SETTERM_TIMEOUT" ] && SETTERM_CMD=" --blank $SETTERM_TIMEOUT"
   [ ! -z "$SETTERM_POWERSAVE" ] && SETTERM_CMD="${SETTERM_CMD} --powersave $SETTERM_POWERSAVE"
   [ ! -z "$SETTERM_POWERDOWN" ] && SETTERM_CMD="${SETTERM_CMD} --powerdown $SETTERM_POWERDOWN"

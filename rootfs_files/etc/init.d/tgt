@@ -54,21 +54,21 @@ remove_target() {
 
 # MOS Custom: Create Target
 create_target() {
-  TARGET_CONFIG=$(echo $TARGET_JSON | jq -r ".[] | select(.id == $1)")
-  IQN=$(echo $TARGET_CONFIG | jq -r ".iqn")
+  TARGET_CONFIG=$(echo "$TARGET_JSON" | jq -r ".[] | select(.id == $1)")
+  IQN=$(echo "$TARGET_CONFIG" | jq -r ".iqn")
   configure_target "$1" "$IQN"
-  LUNS=$(echo $TARGET_CONFIG | jq -r ".luns[].id")
+  LUNS=$(echo "$TARGET_CONFIG" | jq -r ".luns[].id")
   for lun_id in $LUNS ; do
-    LUN_CONFIG=$(echo $TARGET_CONFIG | jq -r ".luns[] | select(.id == $lun_id)")
-    LUN_MODE=$(echo $LUN_CONFIG | jq -r '.mode')
-    LUN_PATH=$(echo $LUN_CONFIG | jq -r '.path')
-    LUN_RW_MODE=$(echo $LUN_CONFIG | jq -r '.backing_store')
+    LUN_CONFIG=$(echo "$TARGET_CONFIG" | jq -r ".luns[] | select(.id == $lun_id)")
+    LUN_MODE=$(echo "$LUN_CONFIG" | jq -r '.mode')
+    LUN_PATH=$(echo "$LUN_CONFIG" | jq -r '.path')
+    LUN_RW_MODE=$(echo "$LUN_CONFIG" | jq -r '.backing_store')
     create_lun "$1" "$lun_id" "$LUN_MODE" "$LUN_PATH"
     if [ "$LUN_RW_MODE" = "ro" ] ; then
       update_lun "$1" "$lun_id" "$LUN_MODE" "readonly=1"
     fi
   done
-  ALLOWED_INITIATORS=$(echo $TARGET_CONFIG | jq -r ".initiators[].iqn")
+  ALLOWED_INITIATORS=$(echo "$TARGET_CONFIG" | jq -r ".initiators[].iqn")
   for allowed_initiator in $ALLOWED_INITIATORS ; do
     create_bindings "$1" "$allowed_initiator"
   done
@@ -93,7 +93,7 @@ start()
   # if it's not ready.
   tgtadm --op update --mode sys --name State -v offline
   # MOS Custom: Configure Targets:
-  TARGET_IDS=$(echo $TARGET_JSON | jq -r '.[].id')
+  TARGET_IDS=$(echo "$TARGET_JSON" | jq -r '.[].id')
   if [ ! -z "$TARGET_IDS" ] && [ "$TARGET_IDS" != "null" ] ; then
     IFS=$'\n'
     for target_id in $TARGET_IDS ; do

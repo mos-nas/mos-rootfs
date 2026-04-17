@@ -64,7 +64,7 @@ start_cron() {
 
 # Start ssh service if enabled
 start_ssh() {
-  SSH_ENABLED=$(echo $NETWORK_JSON | jq -r '.services.ssh.enabled')
+  SSH_ENABLED=$(echo "$NETWORK_JSON" | jq -r '.services.ssh.enabled')
   if [ "$SSH_ENABLED" = "true" ] ; then
     /etc/init.d/ssh start
   fi
@@ -72,7 +72,7 @@ start_ssh() {
 
 # Start dnsmasq service if enabled
 start_dnsmasq() {
-  DNSMASQ_ENABLED=$(echo $NETWORK_JSON | jq -r '.services.dnsmasq.enabled')
+  DNSMASQ_ENABLED=$(echo "$NETWORK_JSON" | jq -r '.services.dnsmasq.enabled')
   if [ "$DNSMASQ_ENABLED" = "true" ] ; then
     /etc/init.d/dnsmasq start
   fi
@@ -80,7 +80,7 @@ start_dnsmasq() {
 
 # Start ntpd service if enabled
 start_ntp() {
-  NTP_ENABLED=$(echo $SYSTEM_JSON | jq -r '.ntp.enabled')
+  NTP_ENABLED=$(echo "$SYSTEM_JSON" | jq -r '.ntp.enabled')
   if [ "$NTP_ENABLED" = "true" ] ; then
     /etc/init.d/ntpsec start
   fi
@@ -108,7 +108,7 @@ mount_disks() {
 
 # Start NUT UPS service if enabled
 start_nut() {
-  NUT_ENABLED=$(echo $NETWORK_JSON | jq -r '.services.nut.enabled')
+  NUT_ENABLED=$(echo "$NETWORK_JSON" | jq -r '.services.nut.enabled')
   if [ "$NUT_ENABLED" = "true" ] ; then
     /etc/init.d/nut-server start
     /etc/init.d/nut-client start
@@ -130,14 +130,14 @@ optional_packages() {
 
 # Create Docker network interface for ipvlan/macvlan
 docker_network_create() {
-  DOCKER_NET_CONFIG=$(echo $DOCKER_JSON | jq -r '.docker_net.config')
+  DOCKER_NET_CONFIG=$(echo "$DOCKER_JSON" | jq -r '.docker_net.config')
 
-  if [ "$(echo $DOCKER_NET_CONFIG | jq '. | length')" = "0" ] ; then
+  if [ "$(echo "$DOCKER_NET_CONFIG" | jq '. | length')" = "0" ] ; then
     DOCKER_SUBNET="$(ip route show dev $1 | awk '/src/ {print $1}' | head -1)"
     DOCKER_GATEWAY="$(ip route show default 0.0.0.0/0 dev $1 | awk '{print $3}' | head -1)"
   else
-    DOCKER_SUBNET="$(echo $DOCKER_NET_CONFIG | jq -r '.[].subnet')"
-    DOCKER_GATEWAY="$(echo $DOCKER_NET_CONFIG | jq -r '.[].gateway')"
+    DOCKER_SUBNET="$(echo "$DOCKER_NET_CONFIG" | jq -r '.[].subnet')"
+    DOCKER_GATEWAY="$(echo "$DOCKER_NET_CONFIG" | jq -r '.[].gateway')"
   fi
 
   NETWORK_CREATE_OUTPUT=$(docker network create -d $2 \
@@ -153,8 +153,8 @@ docker_network_create() {
 
 # Check if Docker interface for ipvlan/macvlan is already in place
 docker_network_check() {
-  DOCKER_NET_MODE=$(echo $DOCKER_JSON | jq -r '.docker_net.mode')
-  INTERFACE_MODE=$(echo $NETWORK_JSON | jq -r '.interfaces[] | select(.name == "eth0") | .type')
+  DOCKER_NET_MODE=$(echo "$DOCKER_JSON" | jq -r '.docker_net.mode')
+  INTERFACE_MODE=$(echo "$NETWORK_JSON" | jq -r '.interfaces[] | select(.name == "eth0") | .type')
   sleep 1
 
   if [ "$INTERFACE_MODE" = "bridged" ] ; then
@@ -195,10 +195,10 @@ docker_autostart() {
 
 # Start Docker service if enabled
 start_docker() {
-  DOCKER_ENABLED=$(echo $DOCKER_JSON | jq -r '.enabled')
+  DOCKER_ENABLED=$(echo "$DOCKER_JSON" | jq -r '.enabled')
   if [ "$DOCKER_ENABLED" = "true" ] ; then
-    DOCKER_APPDATA=$(echo $DOCKER_JSON | jq -r '.appdata')
-    DOCKER_OPTIONS=$(echo $DOCKER_JSON | jq -r '.docker_options // ""')
+    DOCKER_APPDATA=$(echo "$DOCKER_JSON" | jq -r '.appdata')
+    DOCKER_OPTIONS=$(echo "$DOCKER_JSON" | jq -r '.docker_options // ""')
     if [ ! -d $DOCKER_APPDATA ] ; then
       mkdir -p $DOCKER_APPDATA
     fi
@@ -211,10 +211,10 @@ start_docker() {
 
 # Start LXC service if enabled (and lxc-net if enabled)
 start_lxc() {
-  LXC_ENABLED=$(echo $LXC_JSON | jq -r '.enabled')
+  LXC_ENABLED=$(echo "$LXC_JSON" | jq -r '.enabled')
   if [ "$LXC_ENABLED" = "true" ] ; then
-    LXC_DIRECTORY=$(echo $LXC_JSON | jq -r '.directory')
-    LXC_BRIDGE=$(echo $LXC_JSON | jq -r '.bridge')
+    LXC_DIRECTORY=$(echo "$LXC_JSON" | jq -r '.directory')
+    LXC_BRIDGE=$(echo "$LXC_JSON" | jq -r '.bridge')
     /etc/init.d/lxc "start" "$LXC_DIRECTORY"
     /usr/local/bin/mos-lxc_autostart >/dev/null 2>&1 &
     if [ "$LXC_BRIDGE" = "true" ]; then
@@ -225,7 +225,7 @@ start_lxc() {
 
 # Start VM services if enabled
 start_vm() {
-  VM_ENABLED=$(echo $VM_JSON | jq -r '.enabled')
+  VM_ENABLED=$(echo "$VM_JSON" | jq -r '.enabled')
   if [ "$VM_ENABLED" = "true" ] ; then
     /etc/init.d/libvirtd start
     /etc/init.d/virtlogd start
@@ -234,9 +234,9 @@ start_vm() {
 
 # Start SAMBA service if enabled
 start_samba() {
-  SAMBA_ENABLED=$(echo $NETWORK_JSON | jq -r '.services.samba.enabled')
+  SAMBA_ENABLED=$(echo "$NETWORK_JSON" | jq -r '.services.samba.enabled')
   if [ "$SAMBA_ENABLED" = "true" ] ; then
-    SAMBA_DISCOVERY_ENABLED=$(echo $NETWORK_JSON | jq -r '.services.samba_discovery.enabled')
+    SAMBA_DISCOVERY_ENABLED=$(echo "$NETWORK_JSON" | jq -r '.services.samba_discovery.enabled')
     if [ "$SAMBA_DISCOVERY_ENABLED" = "true" ] ; then
       /etc/init.d/nmbd start
       /etc/init.d/wsddn start
@@ -247,7 +247,7 @@ start_samba() {
 
 # Start NFS service if enabled
 start_nfs() {
-  NFS_ENABLED=$(echo $NETWORK_JSON | jq -r '.services.nfs.enabled')
+  NFS_ENABLED=$(echo "$NETWORK_JSON" | jq -r '.services.nfs.enabled')
   if [ "$NFS_ENABLED" = "true" ] ; then
     /etc/init.d/nfs-kernel-server start
   fi
@@ -255,7 +255,7 @@ start_nfs() {
 
 # Start Tailscale service if enabled
 start_tailscale() {
-  TAILSCALE_ENABLED=$(echo $NETWORK_JSON | jq -r '.services.tailscale.enabled')
+  TAILSCALE_ENABLED=$(echo "$NETWORK_JSON" | jq -r '.services.tailscale.enabled')
   if [ "$TAILSCALE_ENABLED" = "true" ] ; then
     /etc/init.d/tailscaled start
   fi
@@ -263,7 +263,7 @@ start_tailscale() {
 
 # Start Netbird service if enabled
 start_netbird() {
-  NETBIRD_ENABLED=$(echo $NETWORK_JSON | jq -r '.services.netbird.enabled')
+  NETBIRD_ENABLED=$(echo "$NETWORK_JSON" | jq -r '.services.netbird.enabled')
   if [ "$NETBIRD_ENABLED" = "true" ] ; then
     /etc/init.d/netbird start
   fi
@@ -281,7 +281,7 @@ mos_spindown() {
 
 # Start iSCSI Target service if enabled
 start_iscsi_target() {
-  ISCSI_TARGET_ENABLED=$(echo $NETWORK_JSON | jq -r '.services.iscsi_target.enabled')
+  ISCSI_TARGET_ENABLED=$(echo "$NETWORK_JSON" | jq -r '.services.iscsi_target.enabled')
   if [ "$ISCSI_TARGET_ENABLED" = "true" ] ; then
     /etc/init.d/tgt start
   fi
@@ -290,7 +290,7 @@ start_iscsi_target() {
 
 # Mount Remotes if remote_mounting is enabled
 mount_remotes() {
-  REMOTE_MOUNTS_ENABLED=$(echo $NETWORK_JSON | jq -r '.services.remote_mounting.enabled')
+  REMOTE_MOUNTS_ENABLED=$(echo "$NETWORK_JSON" | jq -r '.services.remote_mounting.enabled')
   if [ "$REMOTE_MOUNTS_ENABLED" = "true" ] ; then
     /usr/local/bin/mos-mount_remotes &
   fi
@@ -298,7 +298,7 @@ mount_remotes() {
 
 # Start iSCSI Initiator service if enabled and mount Targets
 start_iscsi_initiator() {
-  ISCSI_INITIATOR_ENABLED=$(echo $NETWORK_JSON | jq -r '.services.iscsi_initiator.enabled')
+  ISCSI_INITIATOR_ENABLED=$(echo "$NETWORK_JSON" | jq -r '.services.iscsi_initiator.enabled')
   if [ "$ISCSI_INITIATOR_ENABLED" = "true" ] ; then
     /etc/init.d/iscsid start
     /usr/local/bin/mos-iscsid_mount >/dev/null 2>&1 &
@@ -335,7 +335,7 @@ modify_issue() {
 
 # Check if persist history is enabled and create symlink
 persist_history() {
-  PERSIST_HISTORY_ENABLED=$(echo $SYSTEM_JSON | jq -r '.persist_history')
+  PERSIST_HISTORY_ENABLED=$(echo "$SYSTEM_JSON" | jq -r '.persist_history')
   if [ "$PERSIST_HISTORY_ENABLED" = "true" ] ; then
     if [ ! -d "/boot/config/system" ] ; then
       mkdir -p /boot/config/system
@@ -348,8 +348,8 @@ persist_history() {
 
 # Update MOS Hub repositories on boot if configured
 mos_hub_update() {
-  HUB_ENALBED=$(echo $HUB_JSON | jq -r '.enabled')
-  HUB_INITIAL_ENABLED=$(echo $HUB_JSON | jq -r '.initial_update')
+  HUB_ENALBED=$(echo "$HUB_JSON" | jq -r '.enabled')
+  HUB_INITIAL_ENABLED=$(echo "$HUB_JSON" | jq -r '.initial_update')
   if [ "$HUB_ENALBED" = "true" ] && [ "$HUB_INITIAL_ENABLED" = "true" ] ; then
     node /usr/local/bin/mos-api_cli hub:update >/dev/null 2>&1 &
   fi
@@ -366,18 +366,18 @@ md5_check_result() {
 
 # SWAP
 start_swap() {
-  SWAP=$(echo $SYSTEM_JSON | jq -r '.swapfile.enabled')
+  SWAP=$(echo "$SYSTEM_JSON" | jq -r '.swapfile.enabled')
   if [ "$SWAP" = "true" ] ; then
-    SWAP_PATH=$(echo $SYSTEM_JSON | jq -r '.swapfile.path')
-    SWAP_PRIORITY=$(echo $SYSTEM_JSON | jq -r '.swapfile.priority')
-    ZSWAP=$(echo $SYSTEM_JSON | jq -r '.swapfile.config.zswap')
+    SWAP_PATH=$(echo "$SYSTEM_JSON" | jq -r '.swapfile.path')
+    SWAP_PRIORITY=$(echo "$SYSTEM_JSON" | jq -r '.swapfile.priority')
+    ZSWAP=$(echo "$SYSTEM_JSON" | jq -r '.swapfile.config.zswap')
     if [ -f "$SWAP_PATH/.swapfile" ] ; then
       swapon --priority "$SWAP_PRIORITY" "$SWAP_PATH/.swapfile"
       if [ "$ZSWAP" = "true" ] ; then
-        ZSWAP_SHRINKER=$(echo $SYSTEM_JSON | jq -r 'if .swapfile.config.shrinker then "Y" else "N" end')
-        ZSWAP_MAX_POOL=$(echo $SYSTEM_JSON | jq -r '.swapfile.config.max_pool_percent')
-        ZSWAP_COMPRESSOR=$(echo $SYSTEM_JSON | jq -r '.swapfile.config.compressor')
-        ZSWAP_ACCEPT_THRESHOLD=$(echo $SYSTEM_JSON | jq -r '.swapfile.config.accept_threshold_percent')
+        ZSWAP_SHRINKER=$(echo "$SYSTEM_JSON" | jq -r 'if .swapfile.config.shrinker then "Y" else "N" end')
+        ZSWAP_MAX_POOL=$(echo "$SYSTEM_JSON" | jq -r '.swapfile.config.max_pool_percent')
+        ZSWAP_COMPRESSOR=$(echo "$SYSTEM_JSON" | jq -r '.swapfile.config.compressor')
+        ZSWAP_ACCEPT_THRESHOLD=$(echo "$SYSTEM_JSON" | jq -r '.swapfile.config.accept_threshold_percent')
         echo "$ZSWAP_SHRINKER" > /sys/module/zswap/parameters/shrinker_enabled
         echo "$ZSWAP_MAX_POOL" > /sys/module/zswap/parameters/max_pool_percent
         echo "$ZSWAP_COMPRESSOR" > /sys/module/zswap/parameters/compressor
@@ -407,9 +407,9 @@ format_zram_ramdisk() {
 
 # zram swap/ramdisk
 start_zram() {
-  ZRAM=$(echo $ZRAM_JSON | jq -r '.enabled')
+  ZRAM=$(echo "$ZRAM_JSON" | jq -r '.enabled')
   if [ "$ZRAM" = "true" ] ; then
-    ZRAM_DEVICES=$(echo $ZRAM_JSON | jq -r '.zram_devices')
+    ZRAM_DEVICES=$(echo "$ZRAM_JSON" | jq -r '.zram_devices')
     if [ "$ZRAM_DEVICES" -gt "0" ] ; then
       modprobe zram num_devices=$ZRAM_DEVICES
       ZRAM_SWAP=$(echo "$ZRAM_JSON" | jq -r '.devices[] | select(.type == "swap") | .index // ""')
@@ -453,12 +453,12 @@ start_zram() {
 
 # Set up binfmt
 binfmt_setup() {
-  BINFMT=$(echo $SYSTEM_JSON | jq -r '.binfmt.enabled')
+  BINFMT=$(echo "$SYSTEM_JSON" | jq -r '.binfmt.enabled')
   if [ "$BINFMT" = "true" ] ; then
     if ! mountpoint -q /proc/sys/fs/binfmt_misc ; then
       mount -t binfmt_misc binfmt_misc /proc/sys/fs/binfmt_misc
     fi
-    for arch in $(echo $SYSTEM_JSON | jq -r '.binfmt.architectures[] // empty' 2>/dev/null); do
+    for arch in $(echo "$SYSTEM_JSON" | jq -r '.binfmt.architectures[] // empty' 2>/dev/null); do
       if ! ls /proc/sys/fs/binfmt_misc/qemu-$arch >/dev/null 2>&1 ; then
         case "$arch" in
           aarch64)
@@ -489,7 +489,7 @@ run_ldconfig() {
 
 # Define argument conditions
 if [ "$1" = "os" ] ; then
-  STARTUP_SOUND=$(echo $SYSTEM_JSON | jq -r '.notification_sound.startup')
+  STARTUP_SOUND=$(echo "$SYSTEM_JSON" | jq -r '.notification_sound.startup')
   if [ "$STARTUP_SOUND" != "null" ] && [ "$STARTUP_SOUND" != "false" ] ; then
     beep -f 500 -l 150 -n -f 580 -l 150
   fi
@@ -528,7 +528,7 @@ if [ "$1" = "os" ] ; then
   start_cron
   md5_check_result
   end_script
-  STARTUP_SOUND=$(echo $SYSTEM_JSON | jq -r '.notification_sound.startup')
+  STARTUP_SOUND=$(echo "$SYSTEM_JSON" | jq -r '.notification_sound.startup')
   if [ "$STARTUP_SOUND" != "null" ] && [ "$STARTUP_SOUND" != "false" ] ; then
     beep -f 523 -l 100 -n -f 587 -l 100 -n -f 659 -l 200
   fi

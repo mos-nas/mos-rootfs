@@ -47,7 +47,7 @@ LOCKFILE=/run/lock/ntpsec-ntpdate
 # MOS custom: inject pools from system.json to ntp.conf
 inject_pools() {
   SYSTEM_JSON=$(jq -r '.' /boot/config/system.json)
-  MODE=$(echo $SYSTEM_JSON | jq -r '.ntp.mode')
+  MODE=$(echo "$SYSTEM_JSON" | jq -r '.ntp.mode')
   for server in $(echo "$SYSTEM_JSON" | jq -r '.ntp.servers[]') ; do
     echo "pool $server $MODE" >> /etc/ntpsec/ntp.conf
   done

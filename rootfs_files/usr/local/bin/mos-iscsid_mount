@@ -2,7 +2,7 @@
 # Get defined Targets from json or passed over target
 ISCSI_TARGETS=$(jq -r '.targets[]' /boot/config/system/iscsi/initiator.json)
 if [ -z "$1" ]; then
-  TARGETS=$(echo $ISCSI_TARGETS | jq -r '.name')
+  TARGETS=$(echo "$ISCSI_TARGETS" | jq -r '.name')
 else
   TARGETS="$1"
 fi
@@ -11,18 +11,18 @@ fi
 if [ ! -z "$ISCSI_TARGETS" ] ; then
   for target in $TARGETS
   do
-    TARGET_JSON=$(echo $ISCSI_TARGETS | jq --arg target_name "$target" '. | select(.name == $target_name)')
+    TARGET_JSON=$(echo "$ISCSI_TARGETS" | jq --arg target_name "$target" '. | select(.name == $target_name)')
     if [ -z "$TARGET_JSON" ] ; then
       echo "Target $target not found in configuartion"
       continue
     fi
-    TARGET_AUTOMOUNT=$(echo $TARGET_JSON | jq -r '.connection.automount')
+    TARGET_AUTOMOUNT=$(echo "$TARGET_JSON" | jq -r '.connection.automount')
     if [ "$TARGET_AUTOMOUNT" != "true" ] ; then
       echo "Automount for Target $target not enabeld, skipping"
       continue
     fi
-    TARGET_IP=$(echo $TARGET_JSON | jq -r '.portal.address')
-    TARGET_PORT=$(echo $TARGET_JSON | jq -r '.portal.port')
+    TARGET_IP=$(echo "$TARGET_JSON" | jq -r '.portal.address')
+    TARGET_PORT=$(echo "$TARGET_JSON" | jq -r '.portal.port')
     if ! timeout 5 iscsiadm -m discovery -t sendtargets -p $TARGET_IP:$TARGET_PORT > /dev/null 2>&1 ; then
       echo "Can't connect to iSCSI Target: $TARGET_IP:$TARGET_PORT"
       continue
