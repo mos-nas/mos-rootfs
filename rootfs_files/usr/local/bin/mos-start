@@ -479,7 +479,12 @@ binfmt_setup() {
 # chmod /dev/dri if exists
 chmod_dri() {
   [ -d /dev/dri ] && \
-    chmod -R 777 /dev/dri
+    chmod -R 777 /dev/dri 2>/dev/null
+}
+
+# Execute ldconfig
+run_ldconfig() {
+  ldconfig 2>/dev/null
 }
 
 # Define argument conditions
@@ -512,6 +517,7 @@ if [ "$1" = "os" ] ; then
   start_samba
   start_nfs
   binfmt_setup
+  run_ldconfig
   start_docker
   start_lxc
   start_vm
