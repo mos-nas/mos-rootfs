@@ -145,7 +145,20 @@ if [ ! -z "$MODPROBED_FILES" ] ; then
   fi
   for modprobed_file in $MODPROBED_FILES
   do
-    /bin/cp $modprobed_file /etc/modprobe.d
+    /bin/cp $modprobed_file /etc/modprobe.d/
+  done
+fi
+
+# Copy over ld.conf files if found
+LDCONF_FILES="$(/bin/ls -1 /boot/optional/ld.so.conf.d/* 2>/dev/null)"
+if [ ! -z "$LDCONF_FILES" ] ; then
+  /bin/echo "Installing ld.so.conf.d files"
+  if [ ! -d /etc/ld.so.conf.d ] ; then
+    mkdir -p /etc/ld.so.conf.d
+  fi
+  for ldconf_file in $LDCONF_FILES
+  do
+    /bin/cp $ldconf_file /etc/ld.so.conf.d/
   done
 fi
 
