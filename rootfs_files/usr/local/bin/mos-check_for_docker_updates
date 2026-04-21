@@ -74,6 +74,7 @@ do
       ;;
     *)
       echo "ERROR: Error getting latest digest for container $container"
+      logger -t "mos-docker_update_check" "ERROR: Error getting latest digest for container $container"
       ERROR=true
       continue
       ;;
@@ -150,6 +151,7 @@ do
       ;;
     *)
       echo "ERROR: Error getting latest digest for compose container $container"
+      logger -t "mos-docker_update_check" "ERROR: Error getting latest digest for container $container"
       ERROR=true
       continue
       ;;
