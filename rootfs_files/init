@@ -198,7 +198,7 @@ fi
 
 # Symlink bash_profile if found
 if [ -f "/boot/config/system/bash_profile" ] ; then
-  rm -f /root/.bash_profile 2>/dev/null
+  /bin/rm -f /root/.bash_profile 2>/dev/null
   /usr/bin/ln -s /boot/config/system/bash_profile /root/.bash_profile
 fi
 
