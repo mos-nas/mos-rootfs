@@ -196,6 +196,11 @@ if [ -f /boot/config/system/smbpasswd ] ; then
   /bin/cp /boot/config/system/smbpasswd /etc/samba/smbpasswd
 fi
 
+# Symlink bash_profile if found
+if [ -f "/boot/config/system/bash_profile" ] ; then
+  /usr/bin/ln -s /boot/config/system/bash_profile /root/.bash_profile
+fi
+
 # Set timezone
 TIMEZONE=$(/usr/bin/jq -r '.timezone' /boot/config/system.json)
 /bin/ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime
