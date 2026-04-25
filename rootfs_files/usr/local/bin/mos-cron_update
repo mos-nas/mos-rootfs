@@ -121,6 +121,42 @@ if [ "$PLUGIN_UPDATE" != "" ] && [ "$PLUGIN_UPDATE" != "null" ] && [ "$PLUGIN_UP
 fi
 crontab="$crontab$plugin_cron"
 
+# Backup Plugin
+if [ -f "/boot/optional/plugins/backup/settings.json" ] ; then
+  backup_cron=""
+  BACKUP_JSON=$(jq -r '.' /boot/optional/plugins/backup/settings.json 2>/dev/null)
+  BACKUP_ALL=$(echo "$BACKUP_JSON" | jq -r '.backup_all.schedule.enabled')
+  if [ "$BACKUP_ALL" == "true" ] ; then
+    BACKUP_ALL_SCHEDULE=$(echo "$BACKUP_JSON" | jq -r '.backup_all.schedule.cron')
+    BACKUP_ALL_SCHEDULE=$(convert_schedule "$BACKUP_ALL_SCHEDULE")
+    backup_cron="# MOS Backup Plugin All:"'\n'"$BACKUP_ALL_SCHEDULE /usr/bin/plugins/mos_backup --run-all > /dev/null 2>&1"'\n'
+  else
+    BACKUP_BOOT=$(echo "$BACKUP_JSON" | jq -r '.boot.schedule.enabled')
+    backup_boot=""
+    if [ "$BACKUP_BOOT" != "" ] && [ "$BACKUP_BOOT" != "null" ] && [ "$BACKUP_BOOT" == "true" ]; then
+       BACKUP_BOOT_SCHEDULE=$(echo "$BACKUP_JSON" | jq -r '.boot.schedule.cron')
+       BACKUP_BOOT_SCHEDULE=$(convert_schedule "$BACKUP_BOOT_SCHEDULE")
+       backup_boot="# MOS Backup Plugin boot:"'\n'"$BACKUP_BOOT_SCHEDULE /usr/bin/plugins/mos_backup --run-boot > /dev/null 2>&1"'\n'
+    fi
+    BACKUP_APPDATA=$(echo "$BACKUP_JSON" | jq -r '.appdata.schedule.enabled')
+    backup_appdata=""
+    if [ "$BACKUP_APPDATA" != "" ] && [ "$BACKUP_APPDATA" != "null" ] && [ "$BACKUP_APPDATA" == "true" ]; then
+       BACKUP_APPDATA_SCHEDULE=$(echo "$BACKUP_JSON" | jq -r '.appdata.schedule.cron')
+       BACKUP_APPDATA_SCHEDULE=$(convert_schedule "$BACKUP_APPDATA_SCHEDULE")
+       backup_appdata="# MOS Backup Plugin appdata:"'\n'"$BACKUP_APPDATA_SCHEDULE /usr/bin/plugins/mos_backup --run-appdata > /dev/null 2>&1"'\n'
+    fi
+    BACKUP_LIBVIRT=$(echo "$BACKUP_JSON" | jq -r '.libvirt.schedule.enabled')
+    backup_libvirt=""
+    if [ "$BACKUP_LIBVIRT" != "" ] && [ "$BACKUP_LIBVIRT" != "null" ] && [ "$BACKUP_LIBVIRT" == "true" ]; then
+       BACKUP_LIBVIRT_SCHEDULE=$(echo "$BACKUP_JSON" | jq -r '.libvirt.schedule.cron')
+       BACKUP_LIBVIRT_SCHEDULE=$(convert_schedule "$BACKUP_LIBVIRT_SCHEDULE")
+       backup_libvirt="# MOS Backup Plugin libvirt:"'\n'"$BACKUP_LIBVIRT_SCHEDULE /usr/bin/plugins/mos_backup --run-libvirt > /dev/null 2>&1"'\n'
+    fi
+    backup_cron="$backup_boot$backup_appdata$backup_libvirt"
+  fi
+  crontab="$crontab$backup_cron"
+fi
+
 # Get all crontab entries
 cron_jobs=""
 CRON_JSON=$(jq -r '.' /boot/config/system/cron.json 2>/dev/null)
