@@ -1,0 +1,30 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          mos-banner
+# Required-Start:
+# Required-Stop:
+# Should-Start:
+# X-Start-Before:
+# Default-Start:     S
+# Default-Stop:
+# Short-Description: Show the MOS Banner and versions
+# Description:       Show the MOS Banner and currently running version when booting
+### END INIT INFO
+
+PATH=/sbin:/bin
+show_banner() {
+  # Display MOS Banner and MOS version
+  echo "░  ░░░░  ░░░      ░░░░      ░░"
+  echo "▒   ▒▒   ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒"
+  echo "▓        ▓▓  ▓▓▓▓  ▓▓▓      ▓▓"
+  echo "█  █  █  ██  ████  ████████  █"
+  echo "█  ████  ███      ████      ██"
+  echo "Version: $(jq -r '"\(.mos.version)-\(.mos.channel)"' /etc/mos-release.json)"
+  echo
+}
+
+case "$1" in
+  start)
+	  show_banner
+	;;
+esac
