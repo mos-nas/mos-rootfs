@@ -39,6 +39,10 @@ cd /usr/bin
 
 ln -sf /usr/bin/apt /usr/bin/apt-get
 
+# add mos-banner
+cd /etc/rcS.d
+ln -sf ../init.d/mos-banner S03mos-banner
+
 cd /etc/rc2.d
 if [ -f /etc/rc2.d/S01start-mos ] ; then
   mv /etc/rc2.d/S01start-mos /etc/rc2.d/S98start-mos
