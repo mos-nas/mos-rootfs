@@ -10,15 +10,6 @@
 # Remove microcode update directories
 /bin/rm -rf /kernel
 
-# Display MOS Banner and MOS version
-/bin/echo "░  ░░░░  ░░░      ░░░░      ░░"
-/bin/echo "▒   ▒▒   ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒"
-/bin/echo "▓        ▓▓  ▓▓▓▓  ▓▓▓      ▓▓"
-/bin/echo "█  █  █  ██  ████  ████████  █"
-/bin/echo "█  ████  ███      ████      ██"
-/bin/echo "Version: $(/usr/bin/jq -r '"\(.mos.version)-\(.mos.channel)"' /etc/mos-release.json)"
-/bin/echo
-
 # Get boot label if set or set to default
 BOOT_LABEL="$(/bin/cat /proc/cmdline | /bin/grep "BOOT_LABEL" | /bin/grep -o 'BOOT_LABEL=[^"]*' | /usr/bin/cut -d '=' -f2)"
 if [ -z "$BOOT_LABEL" ] ; then
@@ -141,7 +132,7 @@ MODPROBED_FILES="$(/bin/ls -1 /boot/optional/modprobe.d/* 2>/dev/null)"
 if [ ! -z "$MODPROBED_FILES" ] ; then
   /bin/echo "Installing modprobe.d files"
   if [ ! -d /etc/modprobe.d ] ; then
-    mkdir -p /etc/modprobe.d
+    /usr/bin/mkdir -p /etc/modprobe.d
   fi
   for modprobed_file in $MODPROBED_FILES
   do
@@ -154,11 +145,37 @@ LDCONF_FILES="$(/bin/ls -1 /boot/optional/ld.so.conf.d/* 2>/dev/null)"
 if [ ! -z "$LDCONF_FILES" ] ; then
   /bin/echo "Installing ld.so.conf.d files"
   if [ ! -d /etc/ld.so.conf.d ] ; then
-    mkdir -p /etc/ld.so.conf.d
+    /usr/bin/mkdir -p /etc/ld.so.conf.d
   fi
   for ldconf_file in $LDCONF_FILES
   do
     /bin/cp $ldconf_file /etc/ld.so.conf.d/
+  done
+fi
+
+# Copy over sysctl.d files if found
+SYSCTL_FILES="$(/bin/ls -1 /boot/optional/sysctl.d/* 2>/dev/null)"
+if [ ! -z "$SYSCTL_FILES" ] ; then
+  /bin/echo "Installing sysctl.d files"
+  if [ ! -d /etc/sysctl.d ] ; then
+    /usr/bin/mkdir -p /etc/sysctl.d
+  fi
+  for sysctl_file in $SYSCTL_FILES
+  do
+    /bin/cp $sysctl_file /etc/sysctl.d/
+  done
+fi
+
+# Copy over udev rule files if found
+UDEV_FILES="$(/bin/ls -1 /boot/optional/udev/* 2>/dev/null)"
+if [ ! -z "$UDEV_FILES" ] ; then
+  /bin/echo "Installing udev rule files"
+  if [ ! -d /etc/udev/rules.d ] ; then
+    /usr/bin/mkdir -p /etc/udev/rules.d
+  fi
+  for udev_file in $UDEV_FILES
+  do
+    /bin/cp $udev_file /etc/udev/rules.d/
   done
 fi
 
@@ -169,6 +186,12 @@ fi
 # Symlink mos-profile.sh
 if [ ! -f /etc/profile.d/mos-profile.sh ] ; then
   /bin/ln -sf /boot/config/system/profile.conf /etc/profile.d/mos-profile.sh
+fi
+
+# Symlink bash_profile if found
+if [ -f "/boot/config/system/bash_profile" ] ; then
+  /bin/rm -f /root/.bash_profile 2>/dev/null
+  /usr/bin/ln -s /boot/config/system/bash_profile /root/.bash_profile
 fi
 
 # Install optional drivers
@@ -194,12 +217,6 @@ if [ -f /boot/config/system/passwd ] ; then
 fi
 if [ -f /boot/config/system/smbpasswd ] ; then
   /bin/cp /boot/config/system/smbpasswd /etc/samba/smbpasswd
-fi
-
-# Symlink bash_profile if found
-if [ -f "/boot/config/system/bash_profile" ] ; then
-  /bin/rm -f /root/.bash_profile 2>/dev/null
-  /usr/bin/ln -s /boot/config/system/bash_profile /root/.bash_profile
 fi
 
 # Set timezone
