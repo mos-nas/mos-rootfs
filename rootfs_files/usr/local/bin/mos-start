@@ -487,6 +487,23 @@ run_ldconfig() {
   ldconfig 2>/dev/null
 }
 
+# Auto-start plugins that require services
+start_autostart_plugins() {
+  for plugin in /boot/optional/plugins/*; do
+    VERSION_PATH=$(ls -d $plugin/*/ 2>/dev/null | sort -V | tail -1)
+    if [ ! -z "$VERSION_PATH" ] && [ -f "$VERSION_PATH/functions" ]; then
+      (
+        source $VERSION_PATH/functions
+        if type mos_start_after_services &>/dev/null; then
+          DISPLAY_NAME=$(jq -r '.name' $plugin/template.json 2>/dev/null)
+          logger -t "MOS Plugins: $DISPLAY_NAME" "Executing after-services start script"
+          mos_start_after_services 2>&1 | logger -t "MOS Plugins: $DISPLAY_NAME"
+        fi
+      )
+    fi
+  done
+}
+
 # Define argument conditions
 if [ "$1" = "os" ] ; then
   STARTUP_SOUND=$(echo "$SYSTEM_JSON" | jq -r '.notification_sound.startup')
@@ -526,6 +543,7 @@ if [ "$1" = "os" ] ; then
   mos_hub_update
   mos_spindown
   start_cron
+  start_autostart_plugins &
   md5_check_result
   end_script
   STARTUP_SOUND=$(echo "$SYSTEM_JSON" | jq -r '.notification_sound.startup')
