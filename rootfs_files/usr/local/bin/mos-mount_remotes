@@ -45,10 +45,6 @@ for remote_name in $REMOTES; do
       continue
     fi
 
-    # Create share directory
-    [ ! -d /mnt/remotes/${server}/${share} ] && \
-      mkdir -p /mnt/remotes/${server}/${share}
-
     # Check if share is smb or nfs and mount remote share
     if [ "$type" = "smb" ] ; then
       if [ "$username" != "null" ] ; then
@@ -68,6 +64,10 @@ for remote_name in $REMOTES; do
       [ "$gid" != "null" ] && \
         SMB_OPTIONS="$SMB_OPTIONS,gid=${gid}"
 
+      # Create share directory
+      [ ! -d /mnt/remotes/${server}/${share} ] && \
+        mkdir -p /mnt/remotes/${server}/${share}
+
       logger "Mounting SAMBA remote share: $share from host: $server ($mount_server)"
       mount -t cifs //${mount_server}/${share} /mnt/remotes/${server}/${share} -o ${SMB_OPTIONS}
       EXIT_STATUS=$?
@@ -76,7 +76,7 @@ for remote_name in $REMOTES; do
         rmdir /mnt/remotes/${server}/${share}
       fi
     elif [ "$type" = "nfs" ] ; then
-      NFS_OPTIONS="vers=4"
+      NFS_OPTIONS="vers=4,soft,retrans=2,timeo=50"
 
       [ "$uid" != "null" ] && \
         NFS_OPTIONS="$NFS_OPTIONS,uid=${uid}"
@@ -84,12 +84,20 @@ for remote_name in $REMOTES; do
       [ "$gid" != "null" ] && \
         NFS_OPTIONS="$NFS_OPTIONS,gid=${gid}"
 
+      # Sanitize share name
+      share_name=$(echo "$share" | sed 's|^/\+||;s|/\+$||;s|/|_|g;s|[^a-zA-Z0-9_-]|_|g')
+      share_name="${share_name:-root}"
+
+      # Create share directory
+      [ ! -d /mnt/remotes/${server}/${share_name} ] && \
+        mkdir -p /mnt/remotes/${server}/${share_name}
+
       logger "Mounting NFS remote share: $share from host: $server ($mount_server)"
-      mount -t nfs ${mount_server}:/${share} /mnt/remotes/${server}/${share} -o ${NFS_OPTIONS}
+      mount -t nfs ${server}:${share} /mnt/remotes/${server}/${share_name} -o ${NFS_OPTIONS}
       EXIT_STATUS=$?
       if [ "$EXIT_STATUS" != "0" ] ; then
         logger "Error mounting NFS share: $share from server: $server"
-        rmdir /mnt/remotes/${server}/${share}
+        rmdir /mnt/remotes/${server}/${share_name}
       fi
     fi
   fi
