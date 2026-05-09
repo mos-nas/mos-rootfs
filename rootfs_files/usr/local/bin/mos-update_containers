@@ -152,3 +152,6 @@ else
     fi
   fi
 fi
+
+# Make sure to clean up untagged images
+docker image prune -f
