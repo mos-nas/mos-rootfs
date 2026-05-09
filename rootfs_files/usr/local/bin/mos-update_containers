@@ -70,7 +70,7 @@ do
     NO_AUTOUPDATE=$(docker inspect --format '{{index .Config.Labels "mos.no_autoupdate"}}' $container 2>/dev/null)
     if [ "$NO_AUTOUPDATE" = "true" ] ; then
       echo "INFO: Auto update for container $container disabled, skipping"
-      REMOTE_SHA="$LOCAL_SHA"
+      continue
     fi
   fi
   # Compare local and remote SHA with error handling if no container JSON is found
@@ -142,11 +142,13 @@ else
       echo "Nothing to do, all containers up to date"
     fi
   else
-    if [ ! -z "$CONTAINER_UPDATES" ] ; then
-      echo
-      echo "Container $1 updated"
-    else
-      echo "Container $1 up to date"
+    if [ "$NO_AUTOUPDATE" != "true" ] ; then
+      if [ ! -z "$CONTAINER_UPDATES" ] ; then
+        echo
+        echo "Container $1 updated"
+      else
+        echo "Container $1 up to date"
+      fi
     fi
   fi
 fi
