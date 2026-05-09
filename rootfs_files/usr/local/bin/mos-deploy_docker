@@ -310,7 +310,8 @@ else
 fi
 
 # Set/get index from container for containers file
-INDEX=$(jq -r 'keys[] | select(test("^[0-9]+$")) | tonumber' /var/lib/docker/mos/containers 2>/dev/null)
+CONTAINERS_FILE=$(cat /var/lib/docker/mos/containers 2>/dev/null)
+INDEX=$(echo "$CONTAINERS_FILE" | jq -r '[.[].index] | max' 2>/dev/null)
 if [[ -z "$INDEX" || "$INDEX" = "null" ]] ; then
   INDEX=1
 else
@@ -319,7 +320,12 @@ fi
 
 # Set local and remote SHA for container in containers file
 sha256_local=$(docker image inspect "$repo" --format '{{index .RepoDigests 0}}' | cut -d '@' -f2-)
-sha256_remote=$sha256_local
+REMOTE_SHA=$(echo "$CONTAINERS_FILE" | jq --arg name "$name" -r '.[] | select(.name == $name) | .remote')
+if [[ -z "$REMOTE_SHA" || "$REMOTE_SHA" = "null" ]] ; then
+  sha256_remote=$sha256_local
+else
+  sha256_remote=$REMOTE_SHA
+fi
 
 # Inject container information into containers file
 jq --arg name "$name" \
