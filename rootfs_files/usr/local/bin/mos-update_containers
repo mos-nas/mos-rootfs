@@ -66,6 +66,12 @@ do
     REMOTE_SHA="force_update"
   else
     REMOTE_SHA=$(echo "$CONTAINERS_JSON" | jq -r --arg name "$container" '.[] | select(.name == $name) | .remote')
+    # Get mos.no_autoupdate label from container and set sha value
+    NO_AUTOUPDATE=$(docker inspect --format '{{index .Config.Labels "mos.no_autoupdate"}}' $container 2>/dev/null)
+    if [ "$NO_AUTOUPDATE" = "true" ] ; then
+      echo "INFO: Auto update for container $container disabled, skipping"
+      REMOTE_SHA="$LOCAL_SHA"
+    fi
   fi
   # Compare local and remote SHA with error handling if no container JSON is found
   if [ "$LOCAL_SHA" != "$REMOTE_SHA" ] ; then
