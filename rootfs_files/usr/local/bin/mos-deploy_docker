@@ -93,6 +93,7 @@ privileged=$(echo "$config" | jq -r '.privileged // false')
 extra_parameters=$(echo "$config" | jq -r '.extra_parameters // ""')
 post_parameters=$(echo "$config" | jq -r '.post_parameters // ""')
 cpu_set=$(echo "$config" | jq -r '.cpu_set // empty')
+no_autoupdate=$(echo "$config" | jq -r '.no_autoupdate // false')
 
 # Check if this is an update/recreation and if container is running
 if [[ "$UPDATE" = "true" ]] || [[ "$RECREATE" = "true" ]] ; then
@@ -259,6 +260,11 @@ docker_cmd+=(--label "mos.backend=docker")
 if [[ "$web_ui_url" != "null" && -n "$web_ui_url" ]] ; then
   web_ui_url=$(echo "$web_ui_url" | sed 's/\[IP\]/[ADDRESS]/')
   docker_cmd+=(--label "mos.webui=${web_ui_url}")
+fi
+if [[ "$no_autoupdate" = "true" ]] ; then
+  docker_cmd+=(--label "mos.no_autoupdate=true")
+else
+  docker_cmd+=(--label "mos.no_autoupdate=false")
 fi
 
 # Add rest of parameters to docker_cmd
