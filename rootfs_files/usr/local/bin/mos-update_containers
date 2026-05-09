@@ -93,7 +93,14 @@ do
   if [ "$2" = "force_update" ] ; then
     STACK_UPDATE=true
   elif echo "$STACK_JSON" | jq -e 'any(.services[]; .local != .remote)' > /dev/null; then
-    STACK_UPDATE=true
+    if [ "$(echo "$STACK_JSON" | jq -r '.no_autoupdate' 2>/dev/null)" = "true" ] ; then
+      echo "INFO: Auto update for Stack $stack disabled, skipping"
+      NO_AUTOUPDATE=true
+      STACK_UPDATE=""
+      continue
+    else
+      STACK_UPDATE=true
+    fi
   fi
   if [ "$STACK_UPDATE" = "true" ] ; then
     echo "Updating compose stack $stack"
