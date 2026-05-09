@@ -34,7 +34,7 @@ else
 fi
 
 # Set DOCKER_CONFIG if tokens are presend
-if [ "$2" != "update_container" ] ; then
+if [ "$2" != "recreate_container" ] ; then
   # Import MOS functions
   . /usr/local/lib/functions/mos-common
 
@@ -321,7 +321,7 @@ fi
 # Set local and remote SHA for container in containers file
 sha256_local=$(docker image inspect "$repo" --format '{{index .RepoDigests 0}}' | cut -d '@' -f2-)
 REMOTE_SHA=$(echo "$CONTAINERS_FILE" | jq --arg name "$name" -r '.[] | select(.name == $name) | .remote')
-if [[ -z "$REMOTE_SHA" || "$REMOTE_SHA" = "null" ]] ; then
+if [[ -z "$REMOTE_SHA" || "$REMOTE_SHA" = "null" || "$2" = "update_container" ]] ; then
   sha256_remote=$sha256_local
 else
   sha256_remote=$REMOTE_SHA
