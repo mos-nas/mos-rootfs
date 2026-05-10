@@ -118,6 +118,9 @@ stop_mos() {
     { echo "nocheck CANCEL" > /proc/nmdcmd; } 2>/dev/null
     { echo "stop" > /proc/nmdcmd; } 2>/dev/null
   fi
+  if [ -f /var/run/mos-notify.pid ] ; then
+    /etc/init.d/notify stop
+  fi
   rm -f /boot/config/system/mos.chk
   sync
 }
