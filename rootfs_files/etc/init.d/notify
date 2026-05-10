@@ -19,6 +19,9 @@ USER="root"
 
 if [ "$DEBUG" = "true" ] ; then
   DEBUG_ARG="--output /var/log/notify"
+  if [ "$VERBOSE" = "true" ] ; then
+    DAEMON="$DAEMON --verbose"
+  fi
 else
   DEBUG_ARG=""
 fi
