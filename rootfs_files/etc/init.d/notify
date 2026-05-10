@@ -27,16 +27,28 @@ else
 fi
 
 PID="/run/mos-notify.pid"
+PERSIST_NOTIFICATIONS=$(jq -r '.persist_notifications // false' /boot/config/system.json 2>/dev/null)
 
 . /lib/init/vars.sh
 . /lib/lsb/init-functions
 
 start_notify() {
+  if [ "$PERSIST_NOTIFICATIONS" = "true" ] ; then
+    if [ -f /boot/config/notify/notifications.json ] ; then
+      mkdir -p /var/mos/notify 2>/dev/null
+      cp /boot/config/notify/notifications.json /var/mos/notify/notifications.json
+    fi
+  fi
   start-stop-daemon --start --background --make-pidfile --pidfile $PID \
     --user $USER --exec "$DAEMON" $DEBUG_ARG -- $ARGS >/dev/null 2>&1
 }
 
 stop_notify() {
+  if [ "$PERSIST_NOTIFICATIONS" = "true" ] ; then
+    if [ -f /var/mos/notify/notifications.json ] ; then
+      cp /var/mos/notify/notifications.json /boot/config/notify/notifications.json
+    fi
+  fi
   start-stop-daemon --stop --pidfile "$PID"
   rm -f /run/mos-notify.sock
 }
