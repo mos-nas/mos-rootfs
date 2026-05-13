@@ -23,6 +23,16 @@ NETBIRD_CONFIG=$(jq '.services.netbird' /boot/config/network.json)
 . /lib/init/vars.sh
 . /lib/lsb/init-functions
 
+# Import MOS functions
+. /usr/local/lib/functions/mos-common
+
+# Set Architecture
+if [ "$(get_arch)" == "amd64" ] ; then
+  ARCH="amd64"
+elif [ "$(get_arch)" == "arm64" ] ; then
+  ARCH="arm64"
+fi
+
 # Update check
 update_check() {
   if [ ! -d /boot/optional/plugins/netbird ] ; then
@@ -43,12 +53,12 @@ update_check() {
     if [ -z "$latest_version" ] ; then
       exit 1
     fi
-    if ! wget -q -O /boot/optional/plugins/netbird/netbird-$latest_version.tar.gz https://github.com/netbirdio/netbird/releases/download/v$latest_version/netbird_${latest_version}_linux_amd64.tar.gz ; then
+    if ! wget -q -O /boot/optional/plugins/netbird/netbird-$latest_version.tar.gz https://github.com/netbirdio/netbird/releases/download/v$latest_version/netbird_${latest_version}_linux_${ARCH}.tar.gz ; then
       rm -f /boot/optional/plugins/netbird/netbird-$latest_version.tar.gz
       exit 1
     fi
   elif [ "$(echo "$NETBIRD_CONFIG" | jq -r '.update_check')" = "true" ] && [ "$available_version" != "$latest_version" ] ; then
-    if ! wget -q -O /boot/optional/plugins/netbird/netbird-$latest_version.tar.gz https://github.com/netbirdio/netbird/releases/download/v$latest_version/netbird_${latest_version}_linux_amd64.tar.gz ; then
+    if ! wget -q -O /boot/optional/plugins/netbird/netbird-$latest_version.tar.gz https://github.com/netbirdio/netbird/releases/download/v$latest_version/netbird_${latest_version}_linux_${ARCH}.tar.gz ; then
       rm -f /boot/optional/plugins/netbird/netbird-$latest_version.tar.gz
       latest_version=$available_version
     fi
