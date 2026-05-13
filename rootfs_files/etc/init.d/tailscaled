@@ -23,6 +23,16 @@ TAILSCALE_CONFIG=$(jq '.services.tailscale' /boot/config/network.json)
 . /lib/init/vars.sh
 . /lib/lsb/init-functions
 
+# Import MOS functions
+. /usr/local/lib/functions/mos-common
+
+# Set Architecture
+if [ "$(get_arch)" == "amd64" ] ; then
+  ARCH="amd64"
+elif [ "$(get_arch)" == "arm64" ] ; then
+  ARCH="arm64"
+fi
+
 # Update check
 update_check() {
   if [ ! -d /boot/optional/plugins/tailscale ] ; then
@@ -45,19 +55,19 @@ update_check() {
     if [ -z "$latest_version" ] ; then
       exit 1
     fi
-    if ! wget -q -O /boot/optional/plugins/tailscale/tailscale-$latest_version.tgz https://pkgs.tailscale.com/stable/$(echo "$TAILSCALE_JSON" | jq -r '.Tarballs.amd64') ; then
+    if ! wget -q -O /boot/optional/plugins/tailscale/tailscale-$latest_version.tgz https://pkgs.tailscale.com/stable/$(echo "$TAILSCALE_JSON" | jq -r --arg arch "$ARCH" '.Tarballs[$arch]') ; then
       rm -f /boot/optional/plugins/tailscale/tailscale-$latest_version.tgz
       exit 1
     fi
   elif [ "$(echo "$TAILSCALE_CONFIG" | jq -r '.update_check')" = "true" ] && [ "$available_version" != "$latest_version" ] ; then
-    if ! wget -q -O /boot/optional/plugins/tailscale/tailscale-$latest_version.tgz https://pkgs.tailscale.com/stable/$(echo "$TAILSCALE_JSON" | jq -r '.Tarballs.amd64') ; then
+    if ! wget -q -O /boot/optional/plugins/tailscale/tailscale-$latest_version.tgz https://pkgs.tailscale.com/stable/$(echo "$TAILSCALE_JSON" | jq -r --arg arch "$ARCH" '.Tarballs[$arch]') ; then
       rm -f /boot/optional/plugins/tailscale/tailscale-$latest_version.tgz
       latest_version=$available_version
     fi
   else
     latest_version=$available_version
   fi
-  tar -C /usr/sbin --strip-components=1 -xf /boot/optional/plugins/tailscale/tailscale-$latest_version.tgz tailscale_${latest_version}_amd64/tailscaled tailscale_${latest_version}_amd64/tailscale
+  tar -C /usr/sbin --strip-components=1 -xf /boot/optional/plugins/tailscale/tailscale-$latest_version.tgz tailscale_${latest_version}_${ARCH}/tailscaled tailscale_${latest_version}_${ARCH}/tailscale
   rm -f $(ls /boot/optional/plugins/tailscale/tailscale-*.tgz 2>/dev/null | grep -v "${latest_version}")
 }
 
