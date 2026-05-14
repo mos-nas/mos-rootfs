@@ -29,8 +29,8 @@ test -x $DAEMON || exit 0
 . /lib/lsb/init-functions
 
 check_local_master() {
-  LOCAL_MASTER=$(jq -r '.services.samba.localmaster // true' /boot/config/network.json 2>/dev/null)
-  if [ "$LOCAL_MASTER" = "true" ] ; then
+  LOCAL_MASTER=$(jq -r '.services.samba.localmaster // false' /boot/config/network.json 2>/dev/null)
+  if [ "$LOCAL_MASTER" != "false" ] ; then
     sed -i 's/local master = .*/local master = yes/' /etc/samba/smb.conf
     sed -i 's/preferred master = .*/preferred master = yes/' /etc/samba/smb.conf
     sed -i 's/os level = .*/os level = 255/' /etc/samba/smb.conf
