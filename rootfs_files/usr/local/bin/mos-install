@@ -121,6 +121,8 @@ if [ "$3" != "quiet" ] ; then
   esac
 fi
 
+[ "$5" == "api" ] && notify -t "MOS Installation" -m "Installation started, please wait" -p "normal"
+
 # Create directories
 mkdir -p /var/mos/installer/esp /var/mos/installer/boot
 
@@ -164,6 +166,7 @@ download_asset() {
       echo "md5 OK"
     else
       echo "md5 ERROR"
+      [ "$3" == "api" ] && notify -t "MOS Installation" -m "Error downloading GRUB, md5 check failed" -p "alert"
       exit 1
     fi
   fi
@@ -179,13 +182,14 @@ GRUB_DEB=$(echo "$GRUB_JSON" | jq -r --arg arch "$DEB_ARCH" '.assets[] | select(
 GRUB_DEB_MD5=$(echo "$GRUB_JSON" | jq -r --arg arch "$DEB_ARCH" '.assets[] | select(.name | startswith("mos-grub") and endswith($arch + ".deb.md5")) | .id')
 
 # Download GRUB from mos-grub repo
-download_asset "$GRUB_DEB"
-download_asset "$GRUB_DEB_MD5" ".md5"
+download_asset "$GRUB_DEB" "" "$5"
+download_asset "$GRUB_DEB_MD5" ".md5" "$5"
 
 # Install GRUB
 echo "Installing GRUB"
 if ! dpkg --install /var/mos/installer/grub.deb >/dev/null ; then
   echo "ERROR: GRUB installation failed"
+  [ "$5" == "api" ] && notify -t "MOS Installation" -m "Error GRUB installation failed" -p "alert"
   exit 1
 fi
 
@@ -213,6 +217,7 @@ if [ "$FS_TYPE" != "vfat" ] ; then
   echo "Formatting ESP Partition with FAT32"
   if ! mkfs.fat -F32 -c -I ${DISK}${PARTITION}1 ; then
     echo "ERROR: Format from ESP Partition failed"
+    [ "$5" == "api" ] && notify -t "MOS Installation" -m "Error formatting ESP Partition" -p "alert"
     exit 1
   fi
   # Set Force flag
@@ -232,17 +237,20 @@ if [ "$FS_TYPE" != "vfat" ] ; then
     echo "Formatting boot Partition with $FS_TYPE"
     if ! mkfs.${FS_TYPE} ${FORCE_OPT}${OPT_FLAGS} -L "$LABEL" ${DISK}${PARTITION}2 ; then
       echo "ERROR: Format from Boot Partition failed"
+      [ "$5" == "api" ] && notify -t "MOS Installation" -m "Error formatting Boot Partition" -p "alert"
       exit 1
     fi
     echo "Formatting extra Partition with $FS_TYPE"
     if ! mkfs.${FS_TYPE} ${FORCE_OPT}${OPT_FLAGS} ${DISK}${PARTITION}3 ; then
       echo "ERROR: Format from extra Partition failed"
+      [ "$5" == "api" ] && notify -t "MOS Installation" -m "Error formatting extra Partition" -p "alert"
       exit 1
     fi
   else
     echo "Formatting boot Partition with $FS_TYPE"
     if ! mkfs.${FS_TYPE} ${FORCE_OPT}${OPT_FLAGS} -L "$LABEL" ${DISK}${PARTITION}2 ; then
       echo "ERROR: Format from Boot Partition failed"
+      [ "$5" == "api" ] && notify -t "MOS Installation" -m "Error formatting Boot Partition" -p "alert"
       exit 1
     fi
   fi
@@ -251,11 +259,13 @@ if [ "$FS_TYPE" != "vfat" ] ; then
   echo "Mounting Partitions"
   if ! mount ${DISK}${PARTITION}1 /var/mos/installer/esp ; then
     echo "ERROR: Mount from ESP Partition failed"
+    [ "$5" == "api" ] && notify -t "MOS Installation" -m "Error mounting ESP Partition" -p "alert"
     umount_directories
     exit 1
   fi
   if ! mount ${DISK}${PARTITION}2 /var/mos/installer/boot ; then
-    echo "ERROR: Mount from boot Partition failed"
+    echo "ERROR: Mount from Boot Partition failed"
+    [ "$5" == "api" ] && notify -t "MOS Installation" -m "Error mounting Boot Partition" -p "alert"
     umount_directories
     exit 1
   fi
@@ -271,6 +281,7 @@ if [ "$FS_TYPE" != "vfat" ] ; then
   echo "Installing GRUB"
   if ! grub-install --target=${ARCHITECTURE}-efi --efi-directory=/var/mos/installer/esp --boot-directory=/var/mos/installer/boot --removable --recheck --force ; then
     echo "ERROR: Installing GRUB failed"
+    [ "$5" == "api" ] && notify -t "MOS Installation" -m "Error installing GRUB Bootloader" -p "alert"
     exit 1
   fi
 else
@@ -288,6 +299,7 @@ else
   echo "Formatting Partition with FAT32"
   if ! mkfs.fat -F32 -c -I ${DISK}${PARTITION}1 ; then
     echo "ERROR: Formatting failed"
+    [ "$5" == "api" ] && notify -t "MOS Installation" -m "Error formatting failed" -p "alert"
     exit 1
   fi
 
@@ -295,6 +307,7 @@ else
   echo "Mounting Partition"
   if ! mount ${DISK}${PARTITION}1 /var/mos/installer/boot ; then
     echo "ERROR: Mount from Partition failed"
+    [ "$5" == "api" ] && notify -t "MOS Installation" -m "Error mounting Partition" -p "alert"
     exit 1
   fi
 
@@ -310,6 +323,7 @@ else
   echo "Installing GRUB"
   if ! grub-install --target=${ARCHITECTURE}-efi --efi-directory=/var/mos/installer/boot --boot-directory=/var/mos/installer/boot --removable --recheck --force ; then
     echo "ERROR: Installing GRUB failed"
+    [ "$5" == "api" ] && notify -t "MOS Installation" -m "Error installing GRUB Bootloader" -p "alert"
     exit 1
   fi
 fi
@@ -324,3 +338,5 @@ echo
 echo "Please either unplug your old USB Boot device to boot form"
 echo "the new boot device or change the Boot order in your BIOS."
 echo "Please reboot..."
+
+[ "$5" == "api" ] && notify -t "MOS Installation" -m "Installation done! Please shutdown your server, remove your old boot device and change the boot order in your BIOS if needed." -p "normal"
