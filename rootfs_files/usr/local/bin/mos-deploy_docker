@@ -312,7 +312,7 @@ fi
 # Set/get index from container for containers file
 if [ ! -f /var/lib/docker/mos/containers ] ; then
   mkdir -p /var/lib/docker/mos 2>/dev/null
-  echo "[]" > /var/lib/docker/mos
+  echo "[]" > /var/lib/docker/mos/containers
 fi
 CONTAINERS_FILE=$(cat /var/lib/docker/mos/containers 2>/dev/null)
 
@@ -401,6 +401,16 @@ if ! "${docker_cmd[@]}" ; then
   echo "Error creating container: $name"
   echo -e "\n${docker_cmd[@]}"
   exit 1
+else
+  # Make sure to set local and remote sha on new container deployment
+  if [[ -z "$sha256_local" && -z "$sha256_remote" ]] ; then
+    sha256_local=$(docker image inspect "$repo" --format '{{index .RepoDigests 0}}' | cut -d '@' -f2-)
+    jq --arg name "$name" \
+       --arg local "$sha256_local" \
+       --arg remote "$sha256_local" \
+       'map(if .name == $name then .local = $local | .remote = $remote else . end)
+       ' /var/lib/docker/mos/containers > /var/lib/docker/mos/containers.tmp && mv /var/lib/docker/mos/containers.tmp /var/lib/docker/mos/containers
+  fi
 fi
 
 # Display docker command
