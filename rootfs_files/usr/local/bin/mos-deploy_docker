@@ -310,13 +310,11 @@ else
 fi
 
 # Set/get index from container for containers file
-CONTAINERS_FILE=$(cat /var/lib/docker/mos/containers 2>/dev/null)
-INDEX=$(echo "$CONTAINERS_FILE" | jq -r '[.[].index] | max' 2>/dev/null)
-if [[ -z "$INDEX" || "$INDEX" = "null" ]] ; then
-  INDEX=1
-else
-  INDEX=$((INDEX + 1))
+if [ ! -f /var/lib/docker/mos/containers ] ; then
+  mkdir -p /var/lib/docker/mos 2>/dev/null
+  echo "[]" > /var/lib/docker/mos
 fi
+CONTAINERS_FILE=$(cat /var/lib/docker/mos/containers 2>/dev/null)
 
 # Set local and remote SHA for container in containers file
 sha256_local=$(docker image inspect "$repo" --format '{{index .RepoDigests 0}}' | cut -d '@' -f2-)
