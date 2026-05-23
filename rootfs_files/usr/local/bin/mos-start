@@ -32,6 +32,16 @@ start_script() {
   fi
 }
 
+# Execute moun script if found
+mount_script() {
+  if [ -f /boot/optional/scripts/mounted.sh ] ; then
+    cp /boot/optional/scripts/mounted.sh /tmp/mounted.sh
+    chmod +x /tmp/mounted.sh
+    ( /tmp/mounted.sh )
+    rm -f /tmp/mounted.sh
+  fi
+}
+
 # Execute end script if found
 end_script() {
   if [ -f /boot/optional/scripts/post-start.sh ] ; then
@@ -527,6 +537,7 @@ if [ "$1" = "os" ] ; then
   mount_disks
   start_iscsi_target
   mount_remotes
+  mount_script
   start_swap
   chmod_dri
   optional_packages
