@@ -281,7 +281,7 @@ start_netbird() {
 
 # Execute scripts to set disk standby timeouts and start spindown watchdog for disks
 mos_spindown() {
-  DISKS=$(find /dev/ -name sd?)
+  DISKS=$(find /dev/ -maxdepth 1 -regex ".*/sd[a-z]+" 2>/dev/null)
   for disk in $DISKS
   do
     nohup /usr/local/bin/mos-set_spindown $disk >/dev/null 2>&1 &
