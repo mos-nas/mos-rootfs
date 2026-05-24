@@ -6,7 +6,7 @@ fi
 
 # Set device variable and check if watchdog is already started
 DEVICE="$1"
-if ! /usr/bin/pgrep -f "/usr/local/bin/mos-spindown_watchdog $DEVICE" >/dev/null ; then
+if /usr/bin/pgrep -f "/usr/local/bin/mos-spindown_watchdog $DEVICE" | /bin/grep -qv "$$" ; then
   /usr/bin/logger -t "mos-spindown_watchdog" "Watchdog already running for $DEVICE"
   exit 1
 fi
