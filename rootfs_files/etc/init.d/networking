@@ -202,7 +202,7 @@ bridge_add_interface() {
 detect_interfaces() {
   DETECTED="["
   FIRST=true
-  VIRTUAL_PREFIXES="lo veth docker br- virbr tailscale wt bond dummy tunl sit vxlan flannel cni lxc"
+  VIRTUAL_PREFIXES="lo veth docker br- virbr tailscale wt bond dummy tunl sit vxlan flannel cni lxc shim"
 
   for IFACE_PATH in /sys/class/net/* ; do
     IFACE_NAME=$(basename "$IFACE_PATH")
