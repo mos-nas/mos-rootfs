@@ -237,6 +237,11 @@ start_lxc() {
 start_vm() {
   VM_ENABLED=$(echo "$VM_JSON" | jq -r '.enabled')
   if [ "$VM_ENABLED" = "true" ] ; then
+    HUGEPAGES_ENABLED=$(echo "$VM_JSON" | jq -r '.hugepages.enabled // "false"')
+    if [ "$HUGEPAGES_ENABLED" = "true" ]; then
+      HUGEPAGES_TOTAL=$(echo "$VM_JSON" | jq -r '.hugepages.total // 0')
+      sysctl -w vm.nr_hugepages=$HUGEPAGES_TOTAL >/dev/null 2>&1
+    fi
     /etc/init.d/libvirtd start
     /etc/init.d/virtlogd start
   fi
