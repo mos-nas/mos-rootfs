@@ -7,8 +7,8 @@
 # Required-Stop:     $local_fs
 # Default-Start:     S
 # Default-Stop:      0 6
-# Short-Description: Run mos-ntofiy
-# Description:       Run mos-ntofiy
+# Short-Description: Run mos-notfiy
+# Description:       Run mos-notfiy
 ### END INIT INFO
 
 PATH="/sbin:/bin:/usr/sbin:/usr/bin"
