@@ -70,6 +70,7 @@ generate_shares() {
         comment=$(jq -r ".[].smb[] | select(.name == \"$share_name\") | .comment | if . == null then \"Share $share_name\" else . end" "$SHARES_JSON")
         guest_ok=$(jq -r ".[].smb[] | select(.name == \"$share_name\") | .guest_ok | if . == null then false else . end" "$SHARES_JSON")
         browseable=$(jq -r ".[].smb[] | select(.name == \"$share_name\") | .browseable | if . == null then true else . end" "$SHARES_JSON")
+        execute_always=$(jq -r ".[].smb[] | select(.name == \"$share_name\") | .allow_execute_always | if . == true then \"yes\" else \"no\" end" "$SHARES_JSON")
         read_only=$(jq -r ".[].smb[] | select(.name == \"$share_name\") | .read_only | if . == null then true else . end" "$SHARES_JSON")
         write_list=$(jq -r ".[].smb[] | select(.name == \"$share_name\") | .write_list | if . == null then [] else . end | join(\", \")" "$SHARES_JSON")
         valid_users=$(jq -r ".[].smb[] | select(.name == \"$share_name\") | .valid_users | if . == null then [\"@users\"] else . end | join(\", \")" "$SHARES_JSON")
@@ -95,6 +96,7 @@ generate_shares() {
    path = $path
    browseable = $browseable
    guest ok = $guest_ok
+   acl allow execute always = $execute_always
    read only = $read_only
    write list = $write_list
    valid users = $valid_users
