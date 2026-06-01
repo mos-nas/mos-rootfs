@@ -41,11 +41,6 @@ start_notify() {
   fi
   start-stop-daemon --start --background --make-pidfile --pidfile $PID \
     --user $USER --exec "$DAEMON" $DEBUG_ARG -- $ARGS >/dev/null 2>&1
-
-  # Remove ports.json file (should be removed in the future)
-  if [ -f "/boot/config/notify/ports.json" ] ; then
-    rm -f /boot/config/notify/ports.json
-  fi
 }
 
 stop_notify() {
