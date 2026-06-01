@@ -43,7 +43,7 @@ start_notify() {
     --user $USER --exec "$DAEMON" $DEBUG_ARG -- $ARGS >/dev/null 2>&1
 
   # Remove ports.json file (should be removed in the future)
-  if [ "/boot/config/notify/ports.json" ] ; then
+  if [ -f "/boot/config/notify/ports.json" ] ; then
     rm -f /boot/config/notify/ports.json
   fi
 }
