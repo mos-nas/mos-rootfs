@@ -86,7 +86,6 @@ case "$1" in
     stop_mosapi
     case "$?" in
       0|1)
-        download_mosapi
         start_mosapi
         case "$?" in
           0) log_end_msg 0 ;;
