@@ -72,6 +72,30 @@ if [ "$ID_NONRAID" != "" ] && [ "$ID_NONRAID" != "null" ]; then
 fi
 crontab="$crontab$nonraid_cron"
 
+# Scan for BTRFS Schedules and add them to cron list
+POOLS_BTRFS=$(echo "$POOLS_JSON" | jq -r '.[] | select(.type == "btrfs") | .id')
+btrfs_cron=""
+if [ "$POOLS_BTRFS" != "" ] && [ "$POOLS_BTRFS" != "null" ]; then
+  IFS=$'\n'
+  for pool in $POOLS_BTRFS; do
+    SCRUB_ENABLED=$(echo "$POOLS_JSON" | jq -r ".[] | select(.id == \"$pool\") | .config.scrub.enabled")
+    if [ "$SCRUB_ENABLED" != "" ] && [ "$SCRUB_ENABLED" != "null" ] && [ "$SCRUB_ENABLED" == "true" ]; then
+      POOL_NAME=$(echo "$POOLS_JSON" | jq -r ".[] | select(.id == \"$pool\") | .name")
+      SCRUB_SCHEDULE=$(echo "$POOLS_JSON" | jq -r ".[] | select(.id == \"$pool\") | .config.scrub.schedule")
+      SCRUB_SCHEDULE=$(convert_schedule "$SCRUB_SCHEDULE")
+      btrfs_cron="$btrfs_cron# MOS $POOL_NAME BTRFS Scrub:"'\n'"$SCRUB_SCHEDULE /usr/local/bin/mos-api_cli btrfs:scrub $pool > /dev/null 2>&1"'\n'
+    fi
+    BALANCE_ENABLED=$(echo "$POOLS_JSON" | jq -r ".[] | select(.id == \"$pool\") | .config.balance.enabled")
+    if [ "$BALANCE_ENABLED" != "" ] && [ "$BALANCE_ENABLED" != "null" ] && [ "$BALANCE_ENABLED" == "true" ]; then
+      POOL_NAME=$(echo "$POOLS_JSON" | jq -r ".[] | select(.id == \"$pool\") | .name")
+      BALANCE_SCHEDULE=$(echo "$POOLS_JSON" | jq -r ".[] | select(.id == \"$pool\") | .config.balance.schedule")
+      BALANCE_SCHEDULE=$(convert_schedule "$BALANCE_SCHEDULE")
+      btrfs_cron="$btrfs_cron# MOS $POOL_NAME BTRFS Balance:"'\n'"$BALANCE_SCHEDULE /usr/local/bin/mos-api_cli btrfs:balance $pool > /dev/null 2>&1"'\n'
+    fi
+  done
+fi
+crontab="$crontab$btrfs_cron"
+
 # Read docker.json
 DOCKER_JSON=$(jq -r '.' /boot/config/docker.json 2>/dev/null)
 DOCKER_UPDATE=$(echo "$DOCKER_JSON" | jq -r '.update_check.enabled')
