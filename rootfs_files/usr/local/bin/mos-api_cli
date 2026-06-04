@@ -63,6 +63,36 @@ const commands = {
     handler: async () => await getPoolsService().listPools()
   },
 
+  // BTRFS Scrub
+  'btrfs:scrub': {
+    description: 'Start a Scrub for a BTRFS Pool',
+    handler: async (args) => {
+      const id = args[0];
+
+      if (!id) {
+        throw new Error('BTRFS Pool ID is required. Usage: btrfs:scrub <ID>');
+      }
+
+      const result = await getPoolsService().executeBtrfsScrubOperation(id, 'start');
+      return { ...result, completed: true };
+    }
+  },
+
+  // BTRFS Balance
+  'btrfs:balance': {
+    description: 'Start a Balance for a BTRFS Pool',
+    handler: async (args) => {
+      const id = args[0];
+
+      if (!id) {
+        throw new Error('BTRFS Pool ID is required. Usage: btrfs:balance <ID>');
+      }
+
+      const result = await getPoolsService().executeBtrfsBalanceOperation(id, 'start');
+      return { ...result, completed: true };
+    }
+  },
+
   // Disks
   'disks:list': {
     description: 'List all disks',
