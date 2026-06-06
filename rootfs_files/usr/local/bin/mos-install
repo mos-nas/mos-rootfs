@@ -270,9 +270,19 @@ if [ "$FS_TYPE" != "vfat" ] ; then
     exit 1
   fi
 
-  # Copy files from current boot device
-  echo "Copying files from boot device"
-  cp -R /boot/* /var/mos/installer/boot/
+  # Copy files from current boot device or from tar archive
+  if [ ! -z "$6" ] ; then
+    echo "Copying files from archive"
+    tar -C /var/mos/installer/boot/ --strip-components=1 -xf "$6"
+  else
+    echo "Copying files from boot device"
+    cp -R /boot/* /var/mos/installer/boot/
+  fi
+
+  # Remove unclean shutdown file if it's there
+  if [ -f /var/mos/installer/boot/config/system/mos.chk ] ; then
+    rm -f /var/mos/installer/boot/config/system/mos.chk
+  fi
 
   # Remove EFI directory since not needed
   rm -rf /var/mos/installer/boot/EFI
@@ -311,9 +321,15 @@ else
     exit 1
   fi
 
-  # Copy files from current boot device
-  echo "Copying files from boot device"
-  cp -R /boot/* /var/mos/installer/boot/
+  # Copy files from current boot device or from tar archive
+  if [ ! -z "$6" ] ; then
+    echo "Copying files from archive"
+    tar -C /var/mos/installer/boot/ --strip-components=1 -xf "$6"
+  else
+    echo "Copying files from boot device"
+    cp -R /boot/* /var/mos/installer/boot/
+  fi
+
   # Remove unclean shutdown file if it's there
   if [ -f /var/mos/installer/boot/config/system/mos.chk ] ; then
     rm -f /var/mos/installer/boot/config/system/mos.chk
