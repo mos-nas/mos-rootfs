@@ -8,7 +8,7 @@ if [ -z "$1" ]; then
   # Check for unclean shutdown
   if [ -f /boot/config/system/mos.chk ] ; then
     UNCLEAN_SHUTDOWN=true
-    notify -t "MOS" -m "Unclean shutdown detected!" -p "alert"
+    notify -t "System" -m "Unclean shutdown detected!" -p "alert"
   else
     UNCLEAN_SHUTDOWN=false
     echo "Please don't remove this files" > /boot/config/system/mos.chk
@@ -23,6 +23,11 @@ ZRAM_RAMDISKS=$(echo "$ZRAM_JSON" | jq -r '.enabled and ([.devices[] | select(.t
 if [ "$ZRAM_RAMDISKS" == "true" ] ; then
   ZRAM_RAMDISKS=$(echo "$ZRAM_JSON" | jq -r '.devices[] | select(.type == "ramdisk")')
 fi
+
+# Define Notification Automount failure
+mount_failure_notify() {
+  notify -t "Pools" -m "Automount from Pool $1 failed!" -p "alert"
+}
 
 # UUID check
 uuid_check() {
@@ -92,6 +97,12 @@ mergerfs_mount_disk() {
 # Mount mergerfs pool to /mnt
 mergerfs_mount_pool() {
   mergerfs -o defaults,allow_other,use_ino,category.create=$3,category.search=$4 $1 /mnt/$2
+  EXIT_STATUS=$?
+  if [ "$EXIT_STATUS" != "0" ] ; then
+     mount_failure_notify "$2"
+     return 1
+  fi
+  return 0
 }
 
 # Create mergerfs pools for ep* policies
@@ -149,10 +160,21 @@ btrfs_mount_pool() {
   MOUNT_OPTIONS="-o discard"
   if [ "$3" == "true" ] ; then
     mount -t btrfs $MOUNT_OPTIONS ${1}/${2}_1 /mnt/$2
+    EXIT_STATUS=$?
+    if [ "$EXIT_STATUS" != "0" ] ; then
+       mount_failure_notify "$2"
+       return 1
+    fi
   else
     DEVICE_PATH="$(uuid_check $1)"
     mount -t btrfs $MOUNT_OPTIONS $DEVICE_PATH /mnt/$2
+    EXIT_STATUS=$?
+    if [ "$EXIT_STATUS" != "0" ] ; then
+       mount_failure_notify "$2"
+       return 1
+    fi
   fi
+  return 0
 }
 
 # Mount ext4 disk and check if it's a LUKS encrypted
