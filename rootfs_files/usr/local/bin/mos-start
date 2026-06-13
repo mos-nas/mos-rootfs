@@ -529,14 +529,14 @@ if [ "$1" = "os" ] ; then
   start_smart
   start_sensors_detect
   start_dnsmasq
-  start_script
   modify_issue
   start_ntp
   persist_history
   start_ssh
-  install_plugins
   start_tailscale
   start_netbird
+  start_script
+  install_plugins
   start_iscsi_initiator
   start_zram
   mount_disks
