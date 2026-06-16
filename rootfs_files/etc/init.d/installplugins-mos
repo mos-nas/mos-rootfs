@@ -23,7 +23,7 @@ install_plugins() {
   for plugin in /boot/optional/plugins/*; do
     # Set installation done and get version paths
     INSTALLATION_DONE=false
-    VERSION_PATH=$(ls -d $plugin/*/ 2>/dev/null | sort -V | tail -1)
+    VERSION_PATH=$(ls -d $plugin/*/ 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
     if [ ! -z "$VERSION_PATH" ] ; then
       PACKAGE_PATH=$(ls "$VERSION_PATH"*.deb 2>/dev/null)
       # If there is not .deb package in Version folder it's proabably not a plugin
