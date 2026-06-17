@@ -73,7 +73,15 @@ const commands = {
         throw new Error('BTRFS Pool ID is required. Usage: btrfs:scrub <ID>');
       }
 
-      const result = await getPoolsService().executeBtrfsScrubOperation(id, 'start');
+      const poolsService = getPoolsService();
+      const result = await poolsService.executeBtrfsScrubOperation(id, 'start');
+ 
+      let status;
+      do {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        status = await poolsService.executeBtrfsScrubOperation(id, 'status');
+      } while (status.running);
+
       return { ...result, completed: true };
     }
   },
@@ -88,7 +96,15 @@ const commands = {
         throw new Error('BTRFS Pool ID is required. Usage: btrfs:balance <ID>');
       }
 
-      const result = await getPoolsService().executeBtrfsBalanceOperation(id, 'start');
+      const poolsService = getPoolsService();
+      const result = await poolsService.executeBtrfsBalanceOperation(id, 'start');
+       
+      let status;
+      do {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        status = await poolsService.executeBtrfsBalanceOperation(id, 'status');
+      } while (status.running);
+
       return { ...result, completed: true };
     }
   },
