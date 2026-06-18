@@ -130,11 +130,8 @@ optional_packages() {
   OPTIONAL_PACKAGES=$(ls -1 /boot/optional/packages/)
   if [ ! -z "$OPTIONAL_PACKAGES" ] ; then
     logger "Installing additional packages"
-    for package in $OPTIONAL_PACKAGES
-    do
-      logger "Installing: $package"
-      DEBIAN_FRONTEND=noninteractive dpkg -i /boot/optional/packages/$package >/dev/null 2>&1
-    done
+    DEBIAN_FRONTEND=noninteractive dpkg -i /boot/optional/packages/*.deb >/dev/null 2>&1
+    DEBIAN_FRONTEND=noninteractive dpkg -i /boot/optional/packages/*.deb >/dev/null 2>&1
   fi
 }
 
