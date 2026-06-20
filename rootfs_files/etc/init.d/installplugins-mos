@@ -24,8 +24,8 @@ APT_OPTS="-o Acquire::Retries=1 -o Acquire::http::Timeout=10 -o Acquire::https::
 # Check if there a plugins with additional packages, if yes execute update
 PLG_PKGS=$(cat /boot/optional/plugins/*/packages/packages)
 if [ ! -z "$PLG_PKGS" ] ; then
-  logger -t "MOS Plugins:" "Updating aptitude index" 
-  timeout 20 env DEBIAN_FRONTEND=noninteractive apt-get.orig $APT_OPTS update
+  logger -t "MOS Plugins" "Updating aptitude index"
+  timeout 20 env DEBIAN_FRONTEND=noninteractive apt-get.orig $APT_OPTS update >/dev/null 2>&1
 fi
 
 # Keep only the newest .deb per package
@@ -58,7 +58,7 @@ install_plugins() {
       fi
       # Download/Update additional packages when packages file is found
       if [ -f "$plugin/packages/packages" ] ; then
-        logger -t "MOS Plugins: $DISPLAY_NAME" "Updating and installing additinal packages for" 
+        logger -t "MOS Plugins: $DISPLAY_NAME" "Updating and installing additinal packages" 
         PKGS=$(grep -vE '^[[:space:]]*(#|$)' "$plugin/packages/packages")
         timeout 60 env DEBIAN_FRONTEND=noninteractive apt-get.orig $APT_OPTS install -y --download-only --no-install-recommends \
           -o Dir::Cache::archives="$plugin/packages/" $PKGS >/dev/null 2>&1
