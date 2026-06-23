@@ -4,7 +4,7 @@ PATH=$PATH:/usr/local/bin
 # Get json and write it into variable
 VPOOLS_JSON=$(jq '.[]' /boot/config/vpools.json 2>/dev/null)
 if [ -z "$1" ]; then
-  VPOOLS=$(echo "$VPOOLS_JSON" | jq '.name')
+  VPOOLS=$(echo "$VPOOLS_JSON" | jq -s 'sort_by(.index) | .[].name')
 else
   VPOOLS="$1"
 fi
