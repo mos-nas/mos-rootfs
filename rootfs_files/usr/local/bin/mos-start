@@ -116,6 +116,11 @@ mount_disks() {
   /usr/local/bin/mos-mount_disks
 }
 
+# Mount vpools
+mount_vpools() {
+  /usr/local/bin/mos-mount_vpools
+}
+
 # Start NUT UPS service if enabled
 start_nut() {
   NUT_ENABLED=$(echo "$NETWORK_JSON" | jq -r '.services.nut.enabled')
@@ -539,6 +544,7 @@ if [ "$1" = "os" ] ; then
   mount_disks
   start_iscsi_target
   mount_remotes
+  mount_vpools
   mount_script
   start_swap
   chmod_dri
