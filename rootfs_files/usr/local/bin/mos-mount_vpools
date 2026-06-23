@@ -12,11 +12,13 @@ fi
 # Define Notification Automount failure
 mount_failure_notify() {
   notify -t "vPools" -m "Automount from Virtual MergerFS Pool $1 failed!" -p "alert"
+  logger "Automount from Virtual MergerFS Pool $1 failed!"
 }
 
 # Define Notification if directory isn't found
 path_failure_notify() {
   notify -t "vPools" -m "Path $2 not found, Virtual MergerFS Pool $1 not mounted!" -p "alert"
+  logger "Path $2 not found, Virtual MergerFS Pool $1 not mounted!"
 }
 
 # Create vpool directory
@@ -24,6 +26,7 @@ create_vpool_directory() {
   if [ "$(mount | grep "/mnt/$1")" ] ; then
     return 1
   elif [ ! -d /mnt/$1 ] ; then
+    logger "Mounting vpool: $1"
     mkdir -p /mnt/$1
   fi
 }
@@ -87,7 +90,6 @@ do
     make_shared "$VPOOL"
   fi
   chown_vpool "$VPOOL"
-
 
   mount_script "$VPOOL"
   unset VPOOL VPOOLS VPOOL_JSON CREATE_POLICY SEARCH_POLICY VPOOL_SHARED path PATHS
