@@ -1,0 +1,94 @@
+#!/bin/sh
+PATH=$PATH:/usr/local/bin
+
+# Get json and write it into variable
+VPOOLS_JSON=$(jq '.[]' /boot/config/vpools.json 2>/dev/null)
+if [ -z "$1" ]; then
+  VPOOLS=$(echo "$VPOOLS_JSON" | jq '.name')
+else
+  VPOOLS="$1"
+fi
+
+# Define Notification Automount failure
+mount_failure_notify() {
+  notify -t "vPools" -m "Automount from Virtual MergerFS Pool $1 failed!" -p "alert"
+}
+
+# Define Notification if directory isn't found
+path_failure_notify() {
+  notify -t "vPools" -m "Path $2 not found, Virtual MergerFS Pool $1 not mounted!" -p "alert"
+}
+
+# Create vpool directory
+create_vpool_directory() {
+  if [ "$(mount | grep "/mnt/$1")" ] ; then
+    return 1
+  elif [ ! -d /mnt/$1 ] ; then
+    mkdir -p /mnt/$1
+  fi
+}
+
+# Mount mergerfs vpool to /mnt
+mergerfs_mount_vpool() {
+  mergerfs -o defaults,allow_other,use_ino,category.create=$3,category.search=$4 $1 /mnt/$2
+  EXIT_STATUS=$?
+  if [ "$EXIT_STATUS" != "0" ] ; then
+     mount_failure_notify "$2"
+     return 1
+  fi
+  return 0
+}
+
+# Execute script if one is found after pool is mounted
+mount_script() {
+  if [ -f "/boot/optional/scripts/vpools/mounted/$1.sh" ] ; then
+    bash /boot/optional/scripts/vpools/mounted/$1.sh >/dev/null 2>&1 &
+  fi
+}
+
+# Make mount shared if specified
+make_shared() {
+  mount --make-shared /mnt/$1
+}
+
+# chown vpool
+chown_vpool() {
+  chown mos:mos /mnt/$1
+}
+
+# Loop through pools and try to mount them if automount is enabled
+for VPOOL in $VPOOLS
+do
+  VPOOL=$(echo "$VPOOL" | xargs)
+  VPOOL_JSON=$(echo "$VPOOLS_JSON" | jq --arg vpool_name "$VPOOL" '. | select(.name == $vpool_name)')
+  if [ -z "$1" ] && [ "$(echo "$VPOOL_JSON" | jq -r '.automount')" != "true" ] ; then
+    continue
+  fi
+  CREATE_POLICY=$(echo "$VPOOL_JSON" | jq -r '.config.policies.create')
+  SEARCH_POLICY=$(echo "$VPOOL_JSON" | jq -r '.config.policies.search')
+  VPOOL_SHARED=$(echo "$VPOOL_JSON" | jq -r '.config.shared // false')
+  for path in $(echo "$VPOOL_JSON" | jq -r '.paths[]')
+  do
+    if [ ! -d "$path" ] ; then
+      path_failure_notify "$VPOOL" "$path"
+      continue 2
+    else
+      if [ -z "$PATHS" ] ; then
+        PATHS="$path"
+      else
+        PATHS="$PATHS:$path"
+      fi
+    fi
+  done
+  create_vpool_directory "$VPOOL"
+
+  mergerfs_mount_vpool "$PATHS" "$VPOOL" "$CREATE_POLICY" "$SEARCH_POLICY"
+  if [ "$VPOOL_SHARED" = "true" ] ; then
+    make_shared "$VPOOL"
+  fi
+  chown_vpool "$VPOOL"
+
+
+  mount_script "$VPOOL"
+  unset VPOOL VPOOLS VPOOL_JSON CREATE_POLICY SEARCH_POLICY VPOOL_SHARED path PATHS
+done
