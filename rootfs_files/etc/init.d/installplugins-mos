@@ -43,9 +43,7 @@ cleanup_old_debs() {
 
 install_plugins() {
   # Get all plugin directories
-  for plugin in /boot/optional/plugins/*; do
-    # Set installation done and get version paths
-    INSTALLATION_DONE=false
+  for plugin in /boot/optional/plugins/* ; do
     VERSION_PATH=$(ls -d $plugin/*/ 2>/dev/null | grep -E '/[0-9]+\.[0-9]+\.[0-9]+/?$' | sort -V | tail -1)
     if [ ! -z "$VERSION_PATH" ] ; then
       PACKAGE_PATH=$(ls "$VERSION_PATH"*.deb 2>/dev/null)
@@ -54,7 +52,6 @@ install_plugins() {
         DISPLAY_NAME=$(jq -r '.name' $plugin/template.json)
         logger -t "MOS Plugins: $DISPLAY_NAME" "Installing: ${PACKAGE_PATH##*/}" 
         DEBIAN_FRONTEND=noninteractive dpkg -i $PACKAGE_PATH >/dev/null 2>&1
-        INSTALLATION_DONE=true
       fi
       # Download/Update additional packages when packages file is found
       if [ -f "$plugin/packages/packages" ] ; then
@@ -68,19 +65,22 @@ install_plugins() {
       fi
       # Run functions file if found with timeout to avoid boot blocking
       if [ -f "$VERSION_PATH/functions" ] ; then
-        logger -t "MOS Plugins: $DISPLAY_NAME" "Executing start script"
-        timeout -s KILL 300 bash -c '. "$1"; type mos_start >/dev/null 2>&1 && mos_start' bash "$VERSION_PATH/functions" 2>&1 | logger -t "MOS Plugins: $DISPLAY_NAME"
+        timeout -s KILL 300 bash -c '
+          unset -f mos_start
+          . "$1"
+          declare -F mos_start >/dev/null 2>&1 || exit 100
+          echo "Executing start script"
+          mos_start
+         ' bash "$VERSION_PATH/functions" 2>&1 | logger -t "MOS Plugins: $DISPLAY_NAME"
         case "${PIPESTATUS[0]}" in
           0)       logger -t "MOS Plugins: $DISPLAY_NAME" "Start script finished successful" ;;
+          100)     : ;;
           124|137) logger -t "MOS Plugins: $DISPLAY_NAME" "ERROR: start script timed out" ;;
           *)       logger -t "MOS Plugins: $DISPLAY_NAME" "ERROR: Running start script" ;;
         esac
-        INSTALLATION_DONE=true
       fi
     fi
-    if [ "$INSTALLATION_DONE" == "true" ] ; then
-      logger -t "MOS Plugins: $DISPLAY_NAME" "Installation finished"
-    fi
+    logger -t "MOS Plugins: $DISPLAY_NAME" "Installation finished"
     unset INSTALLATION_DONE VERSION_PATH PACKAGE_PATH DISPLAY_NAME
   done
 }
