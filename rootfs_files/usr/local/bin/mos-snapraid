@@ -80,7 +80,8 @@ done
 {
   # Send notification and start SnapRAID operation
   notify -t "SnapRAID" -m "Starting SnapRAID operation $2 for Pool: $1" -p "normal"
-  snapraid -c /boot/config/snapraid/$1.conf$FIX_DISKS -l /var/log/snapraid/$1 $2 > /run/snapraid/$1.socket 2>&1
+  snapraid -c /boot/config/snapraid/$1.conf$FIX_DISKS -l ">&2" $2 2>&1 1>/run/snapraid/$1.socket \
+    | tail -c "${SNAPRAID_LOG_LIMIT:-20971520}" > /var/log/snapraid/$1
 
   # Sync filesystems and wait for additional 3 minutes
   sync
