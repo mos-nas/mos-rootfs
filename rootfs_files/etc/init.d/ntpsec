@@ -44,6 +44,13 @@ NTPD_OPTS="$NTPD_OPTS -u ntpsec:ntpsec"
 
 LOCKFILE=/run/lock/ntpsec-ntpdate
 
+# MOS custom: Set permissions
+set_permissions() {
+  mkdir -p /var/lib/ntpsec 2>/dev/null
+  chown ntpsec:ntpsec /var/lib/ntpsec
+  chmod 755 /var/lib/ntpsec
+}
+
 # MOS custom: inject pools from system.json to ntp.conf
 inject_pools() {
   SYSTEM_JSON=$(jq -r '.' /boot/config/system.json)
@@ -62,6 +69,7 @@ case $1 in
   start)
     log_daemon_msg "Starting NTP server" "ntpd"
     inject_pools
+    set_permissions
     # MOS Custom
     (
       flock -w 180 9
