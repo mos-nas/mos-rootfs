@@ -140,6 +140,13 @@ if [ ! -z "$MODPROBED_FILES" ] ; then
   done
 fi
 
+# Generate if necessary, copy over machine-id and set permissions
+if [ ! /boot/config/system/machine-id ] ; then
+  /usr/bin/cat /proc/sys/kernel/random/uuid | /usr/bin/tr -d '-' > /boot/config/system/machine-id
+fi
+cp /boot/config/system/machine-id /etc/machine-id
+/usr/bin/chmod 644 /etc/machine-id
+
 # Copy over ld.conf files if found
 LDCONF_FILES="$(/bin/ls -1 /boot/optional/ld.so.conf.d/* 2>/dev/null)"
 if [ ! -z "$LDCONF_FILES" ] ; then
