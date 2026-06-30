@@ -255,7 +255,7 @@ start_samba() {
   if [ "$SAMBA_ENABLED" = "true" ] ; then
     SAMBA_DISCOVERY_ENABLED=$(echo "$NETWORK_JSON" | jq -r '.services.samba_discovery.enabled')
     if [ "$SAMBA_DISCOVERY_ENABLED" = "true" ] ; then
-      /etc/init.d/nmbd start
+      #/etc/init.d/nmbd start
       /etc/init.d/wsddn start
     fi
     /etc/init.d/smbd start
@@ -507,10 +507,10 @@ run_ldconfig() {
 # Auto-start plugins that require services
 start_autostart_plugins() {
   for plugin in /boot/optional/plugins/*; do
-    VERSION_PATH=$(ls -d $plugin/*/ 2>/dev/null | sort -V | tail -1)
-    if [ ! -z "$VERSION_PATH" ] && [ -f "$VERSION_PATH/functions" ]; then
+    VERSION_PATH=$(ls -d $plugin/*/ 2>/dev/null | grep -E '/[0-9]+\.[0-9]+\.[0-9]+/?$' | sort -V | tail -1)
+    if [ ! -z "${VERSION_PATH%/}" ] && [ -f "${VERSION_PATH%/}/functions" ]; then
       (
-        source $VERSION_PATH/functions
+        source ${VERSION_PATH%/}/functions
         if type mos_start_after_services &>/dev/null; then
           DISPLAY_NAME=$(jq -r '.name' $plugin/template.json 2>/dev/null)
           logger -t "MOS Plugins: $DISPLAY_NAME" "Executing after-services start script"
