@@ -46,14 +46,8 @@ stop_mos() {
 
   shutdown_script
 
-#  if [ -f /var/run/ntpd.pid ] ; then
-#    /etc/init.d/ntpsec stop
-#  fi
   if [ -f /var/run/sshd.pid ] ; then
     /etc/init.d/ssh stop
-  fi
-  if [ -f /var/run/iscsid.pid ] ; then
-    /etc/init.d/iscsid stop
   fi
   if [ -f /var/run/tgtd.pid ] ; then
     /etc/init.d/tgt stop
@@ -69,9 +63,6 @@ stop_mos() {
   fi
   if [ -f /var/run/wsddn/wsddn.pid ] ; then
     /etc/init.d/wsddn stop
-  fi
-  if [ -f /var/run/samba/smbd.pid ] ; then
-    /etc/init.d/smbd stop
   fi
   if [ -f /var/run/docker.pid ] ; then
     /etc/init.d/docker stop
@@ -105,6 +96,9 @@ stop_mos() {
   if [ -f /var/run/dnsmasq/dnsmasq.pid ] ; then
     /etc/init.d/dnsmasq stop
   fi
+  if [ -f /var/run/samba/smbd.pid ] ; then
+    /etc/init.d/smbd stop
+  fi
   if [ ! -z "$(echo "$POOLS_JSON" | jq -r '.[] | select(.type == "nonraid") // ""')" ] ; then
     POOL=$(echo "$POOLS_JSON" | jq -r '.[] | select(.type == "nonraid") | .name')
     umount /mnt/$POOL >/dev/null 2>&1
@@ -117,6 +111,9 @@ stop_mos() {
     rmdir /var/mergerfs/$POOL >/dev/null 2>&1
     { echo "nocheck CANCEL" > /proc/nmdcmd; } 2>/dev/null
     { echo "stop" > /proc/nmdcmd; } 2>/dev/null
+  fi
+  if [ -f /var/run/iscsid.pid ] ; then
+    /etc/init.d/iscsid stop
   fi
   if [ -f /var/run/mos-notify.pid ] ; then
     /etc/init.d/notify stop
