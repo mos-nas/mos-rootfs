@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MOS API CLI - Direct service access for cron jobs and automation
- * Usage: mos-api-cli <command> [options]
+ * Usage: mos-api_cli <command> [options]
  *
  * This bypasses HTTP/Auth by calling services directly.
  * Only works when run locally on the same machine.
@@ -220,7 +220,7 @@ const commands = {
       Object.entries(commands).forEach(([cmd, info]) => {
         console.log(`  ${cmd.padEnd(20)} ${info.description}`);
       });
-      console.log('\nUsage: mos-api-cli <command> [options]');
+      console.log('\nUsage: mos-api_cli <command> [options]');
       return null;
     }
   }
