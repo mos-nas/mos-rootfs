@@ -55,6 +55,7 @@ download_mosapi() {
 }
 
 start_mosapi() {
+  rm -rf /var/run/mos-api.sock 2>/dev/null
   start-stop-daemon --start --background --make-pidfile --pidfile $PID \
     --chdir "$DIRECTORY" --user $USER --exec "$DAEMON" --output /var/log/api -- $ARGS >/dev/null 2>&1
 }
