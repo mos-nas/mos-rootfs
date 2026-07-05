@@ -7,22 +7,22 @@ on:
       mos_channel:
         description: 'MOS Channel'
         required: true
-        default: 'beta'
+        default: 'stable'
         type: string
       mos_version:
         description: 'MOS Version'
         required: true
-        default: '0.1.4'
+        default: '0.5.0'
         type: string
       mos_recommended_kernel:
         description: 'MOS Recommended kernel'
         required: true
-        default: '6.18.16'
+        default: '6.18.38'
         type: string
       node_version:
         description: 'Node Version'
         required: true
-        default: '24.14.0'
+        default: '24.18.0'
         type: string
       docker_version:
         description: 'Docker Version'
