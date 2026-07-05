@@ -17,8 +17,9 @@ RUN_DIR="/run"
 
 . /lib/lsb/init-functions
 
-LXC_JSON=$(jq '.' /boot/config/lxc.json)
-POOLS_JSON=$(jq '.' /boot/config/pools.json)
+LXC_JSON=$(jq '.' /boot/config/lxc.json 2>/dev/null)
+POOLS_JSON=$(jq '.' /boot/config/pools.json 2>/dev/null)
+VPOOLS_JSON=$(jq '.' /boot/config/vpools.json 2>/dev/null)
 
 shutdown_script() {
   if [ -f /boot/optional/scripts/shutdown.sh ] ; then
@@ -99,6 +100,11 @@ stop_mos() {
   if [ -f /var/run/samba/smbd.pid ] ; then
     /etc/init.d/smbd stop
   fi
+  VPOOLS=$(echo "$VPOOLS_JSON" | jq -r '.[].name')
+  for vpool in $VPOOLS
+  do
+    umount "/mnt/$vpool" >/dev/null 2>&1
+  done
   if [ ! -z "$(echo "$POOLS_JSON" | jq -r '.[] | select(.type == "nonraid") // ""')" ] ; then
     POOL=$(echo "$POOLS_JSON" | jq -r '.[] | select(.type == "nonraid") | .name')
     umount /mnt/$POOL >/dev/null 2>&1
