@@ -126,7 +126,7 @@ if [ "$3" = "update_kernel" ] ; then
   --header "Accept: application/octet-stream" \
   --header "X-GitHub-Api-Version: 2022-11-28" \
   --output "/var/mos/mos-update/mos-$VERSION.json" \
-  "https://api.github.com/repos/ich777/mos-rootfs/releases/assets/$ASSET_RELEASE_JSON"
+  "https://api.github.com/repos/mos-nas/mos-rootfs/releases/assets/$ASSET_RELEASE_JSON"
   EXIT_STATUS=$?
   if [ "$EXIT_STATUS" != "0" ] ; then
     notify -t "MOS Update" -m "Something went wrong getting recommended Kernel version, not updating Kernel" -p "warning"
@@ -137,7 +137,7 @@ if [ "$3" = "update_kernel" ] ; then
     KERNEL=$(jq -r '.mos.recommended_kernel' /var/mos/mos-update/mos-$VERSION.json)
     RUNNING_KERNEL=$(uname -r)
     curl -s --request GET \
-      --url "https://api.github.com/repos/ich777/mos-kernel/releases?per_page=100" \
+      --url "https://api.github.com/repos/mos-nas/mos-kernel/releases?per_page=100" \
       "${HEADER[@]}" \
       --header "X-GitHub-Api-Version: 2022-11-28" \
       --output /var/mos/mos-update/$KERNEL.json
@@ -169,7 +169,7 @@ curl --progress-bar -L \
   --header "Accept: application/octet-stream" \
   --header "X-GitHub-Api-Version: 2022-11-28" \
   --output "/var/mos/mos-update/update/rootfs" \
-  "https://api.github.com/repos/ich777/mos-rootfs/releases/assets/$ASSET_ROOTFS"
+  "https://api.github.com/repos/mos-nas/mos-rootfs/releases/assets/$ASSET_ROOTFS"
 
 # Download rootfs.md5
 echo "Downloading rootfs.md5"
@@ -178,7 +178,7 @@ curl -s -L \
   --header "Accept: application/octet-stream" \
   --header "X-GitHub-Api-Version: 2022-11-28" \
   --output "/var/mos/mos-update/update/rootfs.md5" \
-  "https://api.github.com/repos/ich777/mos-rootfs/releases/assets/$ASSET_ROOTFS_MD5"
+  "https://api.github.com/repos/mos-nas/mos-rootfs/releases/assets/$ASSET_ROOTFS_MD5"
 
 # Verify checksum
 echo "Verifying md5 checksum from rootfs"
@@ -198,7 +198,7 @@ if [ "$UPDATE_KERNEL" = "true" ] ; then
     --header "Accept: application/octet-stream" \
     --header "X-GitHub-Api-Version: 2022-11-28" \
     --output "/var/mos/mos-update/update/image" \
-    "https://api.github.com/repos/ich777/mos-kernel/releases/assets/$ASSET_KERNEL"
+    "https://api.github.com/repos/mos-nas/mos-kernel/releases/assets/$ASSET_KERNEL"
 
   # Download drivers
   echo "Downloading Kernel drivers"
@@ -207,7 +207,7 @@ if [ "$UPDATE_KERNEL" = "true" ] ; then
     --header "Accept: application/octet-stream" \
     --header "X-GitHub-Api-Version: 2022-11-28" \
     --output "/var/mos/mos-update/update/drivers" \
-    "https://api.github.com/repos/ich777/mos-kernel/releases/assets/$ASSET_DRIVERS"
+    "https://api.github.com/repos/mos-nas/mos-kernel/releases/assets/$ASSET_DRIVERS"
 
   # Download kernel.md5
   curl -s -L \
@@ -215,7 +215,7 @@ if [ "$UPDATE_KERNEL" = "true" ] ; then
     --header "Accept: application/octet-stream" \
     --header "X-GitHub-Api-Version: 2022-11-28" \
     --output "/var/mos/mos-update/update/image.md5" \
-    "https://api.github.com/repos/ich777/mos-kernel/releases/assets/$ASSET_KERNEL_MD5"
+    "https://api.github.com/repos/mos-nas/mos-kernel/releases/assets/$ASSET_KERNEL_MD5"
 
   # Download drivers.md5
   curl -s -L \
@@ -223,7 +223,7 @@ if [ "$UPDATE_KERNEL" = "true" ] ; then
     --header "Accept: application/octet-stream" \
     --header "X-GitHub-Api-Version: 2022-11-28" \
     --output "/var/mos/mos-update/update/drivers.md5" \
-    "https://api.github.com/repos/ich777/mos-kernel/releases/assets/$ASSET_DRIVERS_MD5"
+    "https://api.github.com/repos/mos-nas/mos-kernel/releases/assets/$ASSET_DRIVERS_MD5"
 
   # Verify checksum from image
   echo "Verifying md5 checksum from Kernel image"
@@ -259,7 +259,7 @@ if [ "$UPDATE_MICROCODE" = "true" ] ; then
       --header "Accept: application/octet-stream" \
       --header "X-GitHub-Api-Version: 2022-11-28" \
       --output "/var/mos/mos-update/update/microcode" \
-      "https://api.github.com/repos/ich777/mos-kernel/releases/assets/$ASSET_MICROCODE"
+      "https://api.github.com/repos/mos-nas/mos-kernel/releases/assets/$ASSET_MICROCODE"
 
     # Download microcode.md5
     echo "Downloading microcode.md5"
@@ -268,7 +268,7 @@ if [ "$UPDATE_MICROCODE" = "true" ] ; then
       --header "Accept: application/octet-stream" \
       --header "X-GitHub-Api-Version: 2022-11-28" \
       --output "/var/mos/mos-update/update/microcode.md5" \
-      "https://api.github.com/repos/ich777/mos-kernel/releases/assets/$ASSET_MICROCODE_MD5"
+      "https://api.github.com/repos/mos-nas/mos-kernel/releases/assets/$ASSET_MICROCODE_MD5"
 
     # Verify checksum
     echo "Verifying md5 checksum from microcode"
