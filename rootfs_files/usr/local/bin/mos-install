@@ -158,7 +158,7 @@ download_asset() {
   --header "Accept: application/octet-stream" \
   --header "X-GitHub-Api-Version: 2022-11-28" \
   --output "/var/mos/installer/grub.deb${2}" \
-  "https://api.github.com/repos/ich777/mos-grub/releases/assets/$1"
+  "https://api.github.com/repos/mos-nas/mos-grub/releases/assets/$1"
 
   if [ "$2" = ".md5" ]; then
     echo "Checking md5"
@@ -174,7 +174,7 @@ download_asset() {
 
 # Get GRUB JSON and assets
 GRUB_JSON=$(curl -s --request GET \
-  --url "https://api.github.com/repos/ich777/mos-grub/releases/latest" \
+  --url "https://api.github.com/repos/mos-nas/mos-grub/releases/latest" \
   "${HEADER[@]}" \
   --header "X-GitHub-Api-Version: 2022-11-28")
 
