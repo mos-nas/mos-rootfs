@@ -141,10 +141,10 @@ if [ ! -z "$MODPROBED_FILES" ] ; then
 fi
 
 # Generate if necessary, copy over machine-id and set permissions
-if [ ! /boot/config/system/machine-id ] ; then
+if [ ! -f /boot/config/system/machine-id ] ; then
   /usr/bin/cat /proc/sys/kernel/random/uuid | /usr/bin/tr -d '-' > /boot/config/system/machine-id
 fi
-cp /boot/config/system/machine-id /etc/machine-id
+cp /boot/config/system/machine-id /etc/machine-id 2>/dev/null
 /usr/bin/chmod 644 /etc/machine-id
 
 # Copy over ld.conf files if found
