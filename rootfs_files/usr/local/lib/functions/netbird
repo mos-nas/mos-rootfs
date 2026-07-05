@@ -100,7 +100,7 @@ fi
 unset NBD_PARAMS
 unset NB_PARAMS
 
-if [ -n "${NETBIRD_STATE_DIR}" ]; then
+if [ ! -z "${NETBIRD_STATE_DIR}" ]; then
   NB_STATE_DIR="${NETBIRD_STATE_DIR}"
 elif [ -v SERVER_DIR ]; then
   NB_STATE_DIR="${SERVER_DIR}/.netbird_state"
@@ -124,12 +124,12 @@ if [ "${NETBIRD_USE_SSH}" == "true" ]; then
   NB_PARAMS+=" --allow-server-ssh"
 fi
 
-if [ -n "${NETBIRD_MANAGEMENT_URL}" ]; then
+if [ ! -z "${NETBIRD_MANAGEMENT_URL}" ]; then
   echo "Using management URL ${NETBIRD_MANAGEMENT_URL}"
   NB_PARAMS+=" --management-url=${NETBIRD_MANAGEMENT_URL}"
 fi
 
-if [ -n "${NETBIRD_HOSTNAME}" ]; then
+if [ ! -z "${NETBIRD_HOSTNAME}" ]; then
   echo "Setting host name to ${NETBIRD_HOSTNAME}"
   NB_PARAMS+=" --hostname=${NETBIRD_HOSTNAME/ /}"
 fi
@@ -141,22 +141,22 @@ else
   NBD_PARAMS+="--log-file console >/dev/null 2>&1 "
 fi
 
-if [[ -n "${NETBIRD_SETUP_KEY}" && -f "${NB_STATE_DIR}/.initialized" ]]; then
+if [[ ! -z "${NETBIRD_SETUP_KEY}" && -f "${NB_STATE_DIR}/.initialized" ]]; then
   echo
   echo "-> It is now safe to remove the variable NETBIRD_SETUP_KEY from your template <-"
   echo
   unset NETBIRD_SETUP_KEY
 fi
 
-if [ -n "${NETBIRD_SETUP_KEY}" ]; then
+if [ ! -z "${NETBIRD_SETUP_KEY}" ]; then
   NB_AUTH="--setup-key=${NETBIRD_SETUP_KEY} "
 fi
 
-if [ -n "${NETBIRD_SERVICE_PARAMS}" ]; then
+if [ ! -z "${NETBIRD_SERVICE_PARAMS}" ]; then
   NBD_PARAMS="${NETBIRD_SERVICE_PARAMS} ${NBD_PARAMS}"
 fi
 
-if [ -n "${NETBIRD_PARAMS}" ]; then
+if [ ! -z "${NETBIRD_PARAMS}" ]; then
   NB_PARAMS="${NETBIRD_PARAMS}${NB_PARAMS}"
 fi
 
