@@ -23,14 +23,12 @@ if [ -x "/usr/bin/with-contenv" ]; then
 fi
 
 if [[ ! -f /usr/bin/tailscale || ! -f /usr/bin/tailscaled ]]; then
-  if [ -n "${TAILSCALE_EXIT_NODE_IP}" ]; then
     if [ ! -c /dev/net/tun ]; then
       echo "ERROR: Device /dev/net/tun not found!"
       echo "       Make sure to pass through /dev/net/tun to the container."
       error_handler
     fi
     APT_IPTABLES="iptables "
-  fi
 
   echo "Detecting Package Manager..."
   if command -v apt-get >/dev/null 2>&1; then
@@ -109,7 +107,7 @@ fi
 unset TSD_PARAMS
 unset TS_PARAMS
 
-if [ -n "${TAILSCALE_STATE_DIR}" ]; then
+if [ ! -z "${TAILSCALE_STATE_DIR}" ]; then
   TSD_STATE_DIR="${TAILSCALE_STATE_DIR}"
 elif [ -v SERVER_DIR ]; then
   TSD_STATE_DIR="${SERVER_DIR}/.tailscale_state"
@@ -126,15 +124,15 @@ if [ ! -d "${TSD_STATE_DIR}" ]; then
   mkdir -p "${TSD_STATE_DIR}"
 fi
 
-if [ -n "${TAILSCALE_EXIT_NODE_IP}" ]; then
+if [ ! -z "${TAILSCALE_EXIT_NODE_IP}" ]; then
   echo "Using ${TAILSCALE_EXIT_NODE_IP} as Exit Node! See https://tailscale.com/kb/1103/exit-nodes"
   TS_PARAMS=" --exit-node=${TAILSCALE_EXIT_NODE_IP}"
-  if [ -n "${TAILSCALE_ALLOW_LAN_ACCESS}" ]; then
+  if [ ! -z "${TAILSCALE_ALLOW_LAN_ACCESS}" ]; then
     echo "Enabling local LAN Access to the container!"
     TS_PARAMS+=" --exit-node-allow-lan-access"
   fi
 else
-  if [ -z "${TAILSCALE_USERSPACE_NETWORKING}" ] || [ "${TAILSCALE_USERSPACE_NETWORKING}" == "true" ]; then
+  if [ ! -z "${TAILSCALE_USERSPACE_NETWORKING}" ] || [ "${TAILSCALE_USERSPACE_NETWORKING}" == "true" ]; then
     TSD_PARAMS+="-tun=userspace-networking "
   else
     if [ ! -c /dev/net/tun ]; then
@@ -158,18 +156,18 @@ else
   TSD_PARAMS+=">/dev/null 2>&1 "
 fi
 
-if [[ -n "${TAILSCALE_AUTHKEY}" && -f "${TSD_STATE_DIR}/.initialized" ]]; then
+if [[ ! -z "${TAILSCALE_AUTHKEY}" && -f "${TSD_STATE_DIR}/.initialized" ]]; then
   echo
   echo "-> It is now save to remove the variable TAILSCALE_AUTHKEY from your template <-"
   echo
   unset TAILSCALE_AUTHKEY
 fi
 
-if [ -n "${TAILSCALE_AUTHKEY}" ]; then
+if [ ! -z "${TAILSCALE_AUTHKEY}" ]; then
   TS_AUTH="--authkey=${TAILSCALE_AUTHKEY} "
 fi
 
-if [ -n "${TAILSCALE_HOSTNAME}" ]; then
+if [ ! -z "${TAILSCALE_HOSTNAME}" ]; then
   echo "Setting host name to ${TAILSCALE_HOSTNAME}"
   TS_PARAMS+=" --hostname=${TAILSCALE_HOSTNAME/ /}"
 fi
@@ -179,11 +177,11 @@ if [ "${TAILSCALE_EXIT_NODE}" == "true" ]; then
   TS_PARAMS+=" --advertise-exit-node"
 fi
 
-if [ -n "${TAILSCALED_PARAMS}" ]; then
+if [ ! -z "${TAILSCALED_PARAMS}" ]; then
   TSD_PARAMS="${TAILSCALED_PARAMS} ${TSD_PARAMS}"
 fi
 
-if [ -n "${TAILSCALE_PARAMS}" ]; then
+if [ ! -z "${TAILSCALE_PARAMS}" ]; then
   TS_PARAMS="${TAILSCALE_PARAMS}${TS_PARAMS}"
 fi
 
@@ -208,14 +206,14 @@ else
   error_handler
 fi
 
-if [[ -n "${TAILSCALE_SERVE_PORT}" && "$(tailscale status --json | jq -r '.CurrentTailnet.MagicDNSEnabled')" == "false" ]] ; then
+if [[ ! -z "${TAILSCALE_SERVE_PORT}" && "$(tailscale status --json | jq -r '.CurrentTailnet.MagicDNSEnabled')" == "false" ]] ; then
   echo "ERROR: Enable HTTPS on your Tailscale account to use Tailscale Serve/Funnel."
   echo "See: https://tailscale.com/kb/1153/enabling-https"
   error_handler
 fi
 
-if [ -n "${TAILSCALE_SERVE_PORT}" ]; then
-  if [ -n "${TAILSCALE_SERVE_PATH}" ]; then
+if [ ! -z "${TAILSCALE_SERVE_PORT}" ]; then
+  if [ ! -z "${TAILSCALE_SERVE_PATH}" ]; then
     TAILSCALE_SERVE_PATH="=${TAILSCALE_SERVE_PATH}"
   fi
   if [ -z "${TAILSCALE_SERVE_MODE}" ]; then
