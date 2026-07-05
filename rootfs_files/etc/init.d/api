@@ -48,7 +48,7 @@ download_mosapi() {
     mkdir -p /usr/local/lib/mos-api
   fi
   cd /usr/local/lib/mos-api
-  git clone https://${GH_AUTH}github.com/ich777/mos-api.git --depth=1 . >/dev/null 2>&1
+  git clone https://${GH_AUTH}github.com/mos-nas/mos-api.git --depth=1 . >/dev/null 2>&1
   API_V=$(date -d @"$(git -C /usr/local/lib/mos-api log -1 --format=%ct)" "+%Y%m%d-%H%M")
   jq --arg api_v "${API_V}_updated" '.mos.api = $api_v' /etc/mos-release.json > /etc/mos-release.json.tmp && mv /etc/mos-release.json.tmp /etc/mos-release.json
   rm -rf /usr/local/lib/mos-api/node_modules /usr/local/lib/mos-api/package-lock.json
