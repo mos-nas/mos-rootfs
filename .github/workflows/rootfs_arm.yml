@@ -87,7 +87,7 @@ jobs:
               --header "Accept: application/octet-stream" \
               --header "X-GitHub-Api-Version: 2022-11-28" \
               --output "${{ github.workspace }}/rootfs/tmp/applications/mos-$1_$2_arm64.deb$4" \
-              "https://api.github.com/repos/ich777/mos-$REPO/releases/assets/$3"
+              "https://api.github.com/repos/${{ github.repository }}/mos-$REPO/releases/assets/$3"
           if [ "$4" == ".md5" ] ; then
             if [ "$(md5sum ${{ github.workspace }}/rootfs/tmp/applications/mos-$1_$2_arm64.deb | awk '{print $1}')" != "$(cat ${{ github.workspace }}/rootfs/tmp/applications/mos-$1_$2_arm64.deb$4)" ] ; then
               echo "Checksum error from file: mos-$1_$2_arm64.deb"
@@ -106,7 +106,7 @@ jobs:
 
         # Get Docker Releases
         DOCKER_JSON=$(curl -s --request GET \
-            --url "https://api.github.com/repos/ich777/mos-moby/releases?per_page=50" \
+            --url "https://api.github.com/repos/${{ github.repository }}/mos-moby/releases?per_page=50" \
             --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             --header "X-GitHub-Api-Version: 2022-11-28")
 
@@ -123,7 +123,7 @@ jobs:
 
         # Get LXC Releases
         LXC_JSON=$(curl -s --request GET \
-            --url "https://api.github.com/repos/ich777/mos-lxc/releases?per_page=50" \
+            --url "https://api.github.com/repos/${{ github.repository }}/mos-lxc/releases?per_page=50" \
             --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             --header "X-GitHub-Api-Version: 2022-11-28")
 
@@ -140,7 +140,7 @@ jobs:
 
         # Get QEMU Releases
         QEMU_JSON=$(curl -s --request GET \
-            --url "https://api.github.com/repos/ich777/mos-qemu/releases?per_page=50" \
+            --url "https://api.github.com/repos/${{ github.repository }}/mos-qemu/releases?per_page=50" \
             --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             --header "X-GitHub-Api-Version: 2022-11-28")
 
@@ -157,7 +157,7 @@ jobs:
 
         # Get SnapRAID Releases
         SNAPRAID_JSON=$(curl -s --request GET \
-            --url "https://api.github.com/repos/ich777/mos-snapraid/releases?per_page=50" \
+            --url "https://api.github.com/repos/${{ github.repository }}/mos-snapraid/releases?per_page=50" \
             --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             --header "X-GitHub-Api-Version: 2022-11-28")
 
@@ -174,7 +174,7 @@ jobs:
 
         # Get MergerFS Releases
         MERGERFS_JSON=$(curl -s --request GET \
-            --url "https://api.github.com/repos/ich777/mos-mergerfs/releases?per_page=50" \
+            --url "https://api.github.com/repos/${{ github.repository }}/mos-mergerfs/releases?per_page=50" \
             --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             --header "X-GitHub-Api-Version: 2022-11-28")
 
@@ -191,7 +191,7 @@ jobs:
 
         # Get image-sha Releases
         IMAGESHA_JSON=$(curl -s --request GET \
-            --url "https://api.github.com/repos/ich777/mos-image-sha/releases?per_page=50" \
+            --url "https://api.github.com/repos/${{ github.repository }}/mos-image-sha/releases?per_page=50" \
             --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             --header "X-GitHub-Api-Version: 2022-11-28")
 
@@ -204,7 +204,7 @@ jobs:
 
         # Get image-sha Releases
         NOTIFY_JSON=$(curl -s --request GET \
-            --url "https://api.github.com/repos/ich777/mos-notify/releases?per_page=50" \
+            --url "https://api.github.com/repos/${{ github.repository }}/mos-notify/releases?per_page=50" \
             --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             --header "X-GitHub-Api-Version: 2022-11-28")
 
@@ -217,7 +217,7 @@ jobs:
 
         # Get docker-watchdog Releases
         DOCKERWD_JSON=$(curl -s --request GET \
-            --url "https://api.github.com/repos/ich777/mos-docker-watchdog/releases?per_page=50" \
+            --url "https://api.github.com/repos/${{ github.repository }}/mos-docker-watchdog/releases?per_page=50" \
             --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             --header "X-GitHub-Api-Version: 2022-11-28")
 
@@ -230,7 +230,7 @@ jobs:
 
         # Get docker-watchdog Releases
         WSDDN_JSON=$(curl -s --request GET \
-            --url "https://api.github.com/repos/ich777/mos-wsddn/releases?per_page=50" \
+            --url "https://api.github.com/repos/${{ github.repository }}/mos-wsddn/releases?per_page=50" \
             --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             --header "X-GitHub-Api-Version: 2022-11-28")
 
@@ -285,7 +285,7 @@ jobs:
 
         # Grab latest frontend
         FRONTEND_JSON=$(curl -s --request GET \
-            --url "https://api.github.com/repos/ich777/mos-frontend/releases/latest" \
+            --url "https://api.github.com/repos/${{ github.repository }}/mos-frontend/releases/latest" \
             --header "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             --header "X-GitHub-Api-Version: 2022-11-28")
         FRONTEND_V=$(echo $FRONTEND_JSON | jq -r '.tag_name')
@@ -297,7 +297,7 @@ jobs:
           --header "Accept: application/octet-stream" \
           --header "X-GitHub-Api-Version: 2022-11-28" \
           --output "$WORKDIR/frontend.tar.gz" \
-          "https://api.github.com/repos/ich777/mos-frontend/releases/assets/$FRONTEND_ASSET_ID"
+          "https://api.github.com/repos/${{ github.repository }}/mos-frontend/releases/assets/$FRONTEND_ASSET_ID"
         tar -C $ROOTFS/var/www/ -xf $WORKDIR/frontend.tar.gz
         chown -R root:root $ROOTFS/var/www/
         chmod -R 755 $ROOTFS/var/www/
@@ -328,7 +328,7 @@ jobs:
         fi
 
         # Get latest API
-        git clone https://oauth2:${{ secrets.GITHUB_TOKEN }}@github.com/ich777/mos-api.git --depth=1 $ROOTFS/usr/local/lib/mos-api
+        git clone https://oauth2:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}/mos-api.git --depth=1 $ROOTFS/usr/local/lib/mos-api
         API_V=$(date -d @"$(git -C $ROOTFS/usr/local/lib/mos-api log -1 --format=%ct)" "+%Y%m%d-%H%M")
         rm -rf $ROOTFS/usr/local/lib/mos-api/.git $ROOTFS/usr/local/lib/mos-api/node_modules $ROOTFS/usr/local/lib/mos-api/package-lock.json
         cd $ROOTFS/usr/local/lib/mos-api
