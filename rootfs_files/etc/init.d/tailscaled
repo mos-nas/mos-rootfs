@@ -80,6 +80,22 @@ start_tailscale() {
   start-stop-daemon --start --background --make-pidfile --pidfile $PID --user $USER --exec "$DAEMON" -- $ARGS >/dev/null 2>&1
 }
 
+# MOS custom: Start Tailscale WebUI
+start_webui() {
+  WEBUI=$(echo "$TAILSCALE_CONFIG" | jq -r '.web.enabled')
+  if [ "$WEBUI" == "true" ] ; then
+    ADDRESS=$(echo "$TAILSCALE_CONFIG" | jq -r '.web.address // "0.0.0.0"')
+    PORT=$(echo "$TAILSCALE_CONFIG" | jq -r '.web.port // 8088')
+    sleep 1
+    start-stop-daemon --start --background --make-pidfile --pidfile /run/tailscale_web.pid --user $USER --exec /usr/sbin/tailscale -- web --listen "$ADDRESS:$PORT" >/dev/null 2>&1
+  fi
+}
+
+# MOS custom: Stop Tailscale
+stop_webui() {
+  start-stop-daemon --stop --pidfile /run/tailscale_web.pid >/dev/null 2>&1 || true
+}
+
 # MOS custom: Stop Tailscale
 stop_tailscale() {
   start-stop-daemon --stop --pidfile "$PID"
@@ -90,6 +106,7 @@ case "$1" in
     log_daemon_msg "Starting $NAME" "$DESC"
     update_check
     start_tailscale
+    start_webui
     case "$?" in
       0|1) log_end_msg 0 ;;
       2)   log_end_msg 1 ;;
@@ -97,6 +114,7 @@ case "$1" in
   ;;
   stop)
     log_daemon_msg "Stopping $NAME" "$DESC"
+    stop_webui
     stop_tailscale
     case "$?" in
       0|1) log_end_msg 0 ;;
@@ -106,11 +124,13 @@ case "$1" in
   restart)
     log_daemon_msg "Restarting $NAME" "$DESC"
 
+    stop_webui
     stop_tailscale
     case "$?" in
       0|1)
         update_check
         start_tailscale
+        start_webui
         case "$?" in
           0) log_end_msg 0; check_admin ;;
           1) log_end_msg 1 ;; # Old process is still running
