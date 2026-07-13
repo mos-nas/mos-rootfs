@@ -99,7 +99,7 @@ do
             .
           end
         )
-      ' /var/lib/docker/mos/containers > /var/lib/docker/mos/containers.tmp && mv /var/lib/docker/mos/containers.tmp /var/lib/docker/mos/containers
+      ' /var/lib/docker/mos/containers > /var/lib/docker/mos/containers.tmp && [ -s /var/lib/docker/mos/containers.tmp ] && mv /var/lib/docker/mos/containers.tmp /var/lib/docker/mos/containers
       echo "Update for $container found"
     else
       echo "Update for $container pending"
@@ -174,7 +174,7 @@ do
             end
           )
         )
-      ' /var/lib/docker/mos/compose-containers > /var/lib/docker/mos/compose-containers.tmp && mv /var/lib/docker/mos/compose-containers.tmp /var/lib/docker/mos/compose-containers
+      ' /var/lib/docker/mos/compose-containers > /var/lib/docker/mos/compose-containers.tmp && [ -s /var/lib/docker/mos/compose-containers.tmp ] && mv /var/lib/docker/mos/compose-containers.tmp /var/lib/docker/mos/compose-containers
       echo "Update for $container from compose stack $STACK found"
     else
       echo "Update for $container from compose stack $STACK pending"
