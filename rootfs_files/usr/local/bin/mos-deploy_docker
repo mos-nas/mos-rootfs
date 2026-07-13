@@ -309,9 +309,9 @@ else
   fi
 fi
 
-# Set/get index from container for containers file
-if [ ! -f /var/lib/docker/mos/containers ] ; then
-  mkdir -p /var/lib/docker/mos 2>/dev/null
+# Set/get index from container for containers file, try to heal missing/empty/invalid file
+mkdir -p /var/lib/docker/mos 2>/dev/null
+if ! jq -e 'type == "array"' /var/lib/docker/mos/containers >/dev/null 2>&1 ; then
   echo "[]" > /var/lib/docker/mos/containers
 fi
 CONTAINERS_FILE=$(cat /var/lib/docker/mos/containers 2>/dev/null)
@@ -353,7 +353,7 @@ jq --arg name "$name" \
        "remote": $remote
      }]
    end
-   ' /var/lib/docker/mos/containers > /var/lib/docker/mos/containers.tmp && mv /var/lib/docker/mos/containers.tmp /var/lib/docker/mos/containers
+   ' /var/lib/docker/mos/containers > /var/lib/docker/mos/containers.tmp && [ -s /var/lib/docker/mos/containers.tmp ] && mv /var/lib/docker/mos/containers.tmp /var/lib/docker/mos/containers
 
 # Create icon directories
 if [[ ! -d /var/lib/docker/mos/icons ]] ; then
@@ -409,7 +409,7 @@ else
        --arg local "$sha256_local" \
        --arg remote "$sha256_local" \
        'map(if .name == $name then .local = $local | .remote = $remote else . end)
-       ' /var/lib/docker/mos/containers > /var/lib/docker/mos/containers.tmp && mv /var/lib/docker/mos/containers.tmp /var/lib/docker/mos/containers
+       ' /var/lib/docker/mos/containers > /var/lib/docker/mos/containers.tmp && [ -s /var/lib/docker/mos/containers.tmp ] && mv /var/lib/docker/mos/containers.tmp /var/lib/docker/mos/containers
   fi
 fi
 
