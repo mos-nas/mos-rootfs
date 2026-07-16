@@ -226,10 +226,6 @@ if [ -f /boot/config/system/smbpasswd ] ; then
   /bin/cp /boot/config/system/smbpasswd /etc/samba/smbpasswd
 fi
 
-# Set timezone
-TIMEZONE=$(/usr/bin/jq -r '.timezone' /boot/config/system.json)
-/bin/ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime
-
 # Cache json files into RAM
 JSON_FILES=(
   "docker.json"
@@ -247,6 +243,10 @@ done
 # Set ulimit before handing over to /sbin/init
 ulimit -n 65536
 
+# Set timezone
+TIMEZONE=$(/usr/bin/jq -r '.timezone' /boot/config/system.json)
+/bin/ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime
+
 # Set proxy as early as possible
 for key in $(/usr/bin/jq -r 'keys[]' /boot/config/system/proxy.json 2>/dev/null) ; do
   value=$(/usr/bin/jq -r ".$key" /boot/config/system/proxy.json)
@@ -258,6 +258,10 @@ for key in $(/usr/bin/jq -r 'keys[]' /boot/config/system/proxy.json 2>/dev/null)
     /bin/echo "$KEY_UPPER=$value" >> /etc/environment
   fi
 done
+
+# Remount /var/log to specified size
+LOGSIZE=$(/usr/bin/jq -r '(.logsize // 200)' /boot/config/system.json)
+/usr/bin/mount -t tmpfs -o size=${LOGSIZE}m tmpfs /var/log
 
 # Move system init to /lib/init/system-init
 /bin/mv /init /lib/init/system-init
