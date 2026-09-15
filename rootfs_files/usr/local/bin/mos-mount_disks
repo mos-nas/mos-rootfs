@@ -33,6 +33,8 @@ mount_failure_notify() {
 uuid_check() {
   if [ -e "/dev/disk/by-uuid/$1" ]; then
     echo "/dev/disk/by-uuid/$1"
+  elif [ -e "/dev/disk/by-partuuid/$1" ]; then
+    echo "/dev/disk/by-partuuid/$1"
   else
     ZRAM_RAMDISK_JSON=$(echo "$ZRAM_JSON" | jq --arg uuid "$1" '(.devices[] | select(.config.uuid == $uuid)) // empty')
     if [ ! -z "$ZRAM_RAMDISK_JSON" ] ; then
@@ -78,7 +80,7 @@ mergerfs_mount_disk() {
     fi
     if [ "$5" == "true" ] ; then
       if [ ! -z "$6" ] ; then
-        echo "${6//\"/\\\"}" | cryptsetup open /dev/disk/by-uuid/$2 ${3}_${4}
+        echo "${6//\"/\\\"}" | cryptsetup open $DEVICE_PATH ${3}_${4}
       elif [ -f /tmp/luks/$3.key ] ; then
         cryptsetup open $DEVICE_PATH ${3}_${4} --key-file /tmp/luks/$3.key
       elif [ -f /boot/config/system/luks/$3.key ] ; then
@@ -123,32 +125,34 @@ snapraid_create_parity_directory() {
 snapraid_mount_disk() {
   MOUNT_OPTIONS="-o discard"
   if [ ! "$(findmnt /var/snapraid/$3/parity$4)" ]; then
+    DEVICE_PATH="$(uuid_check $2)"
     if [ "$5" == "true" ] ; then
       if [ ! -z "$6" ] ; then
-        echo "${6//\"/\\\"}" | cryptsetup open /dev/disk/by-uuid/$2 parity_${3}_${4}
+        echo "${6//\"/\\\"}" | cryptsetup open $DEVICE_PATH parity_${3}_${4}
       elif [ -f /tmp/luks/$3.key ] ; then
-        cryptsetup open /dev/disk/by-uuid/$2 parity_${3}_${4} --key-file /tmp/luks/$3.key
+        cryptsetup open $DEVICE_PATH parity_${3}_${4} --key-file /tmp/luks/$3.key
       elif [ -f /boot/config/system/luks/$3.key ] ; then
-        cryptsetup open /dev/disk/by-uuid/$2 parity_${3}_${4} --key-file /boot/config/system/luks/$3.key
+        cryptsetup open $DEVICE_PATH parity_${3}_${4} --key-file /boot/config/system/luks/$3.key
       else
         logger "Can't mount encrypted parity$4 from pool: $3 without passphrase or keyfile"
         return 1
       fi
       mount -t $1 $MOUNT_OPTIONS /dev/mapper/parity_${3}_${4} /var/snapraid/$3/parity$4
     else
-      mount -t $1 $MOUNT_OPTIONS /dev/disk/by-uuid/$2 /var/snapraid/$3/parity$4
+      mount -t $1 $MOUNT_OPTIONS $DEVICE_PATH /var/snapraid/$3/parity$4
     fi
   fi
 }
 
-# Decrypt BTRFS LUKS pool
-btrfs_luks_open() {
+# Decrypt a single pool member by slot, BTRFS and bcachefs
+pool_luks_open() {
+  DEVICE_PATH="$(uuid_check $1)"
   if [ ! -z "$4" ] ; then
-    echo "${4//\"/\\\"}" | cryptsetup open /dev/disk/by-uuid/$1 ${2}_${3}
+    echo "${4//\"/\\\"}" | cryptsetup open $DEVICE_PATH ${2}_${3}
   elif [ -f /tmp/luks/$2.key ] ; then
-    cryptsetup open /dev/disk/by-uuid/$1 ${2}_${3} --key-file /tmp/luks/$2.key
+    cryptsetup open $DEVICE_PATH ${2}_${3} --key-file /tmp/luks/$2.key
   elif [ -f /boot/config/system/luks/$2.key ] ; then
-    cryptsetup open /dev/disk/by-uuid/$1 ${2}_${3} --key-file /boot/config/system/luks/$2.key
+    cryptsetup open $DEVICE_PATH ${2}_${3} --key-file /boot/config/system/luks/$2.key
   else
     logger "Can't mount encrypted pool $2 without passphrase or keyfile"
     return 1
@@ -177,23 +181,34 @@ btrfs_mount_pool() {
   return 0
 }
 
+# Mount bcachefs pool
+bcachefs_mount_pool() {
+  mount -t bcachefs $1 /mnt/$2
+  EXIT_STATUS=$?
+  if [ "$EXIT_STATUS" != "0" ] ; then
+     mount_failure_notify "$2"
+     return 1
+  fi
+  return 0
+}
+
 # Mount ext4 disk and check if it's a LUKS encrypted
 ext4_mount_disk() {
   MOUNT_OPTIONS="-o discard"
+  DEVICE_PATH="$(uuid_check $1)"
   if [ "$3" == "true" ] ; then
     if [ ! -z "$4" ] ; then
-      echo "${4//\"/\\\"}" | cryptsetup open /dev/disk/by-uuid/$1 ${2}_1
+      echo "${4//\"/\\\"}" | cryptsetup open $DEVICE_PATH ${2}_1
     elif [ -f /tmp/luks/$2.key ] ; then
-      cryptsetup open /dev/disk/by-uuid/$1 ${2}_1 --key-file /tmp/luks/$2.key
+      cryptsetup open $DEVICE_PATH ${2}_1 --key-file /tmp/luks/$2.key
     elif [ -f /boot/config/system/luks/$2.key ] ; then
-      cryptsetup open /dev/disk/by-uuid/$1 ${2}_1 --key-file /boot/config/system/luks/$2.key
+      cryptsetup open $DEVICE_PATH ${2}_1 --key-file /boot/config/system/luks/$2.key
     else
       logger "Can't mount encrypted pool $2 without passphrase or keyfile"
       return 1
     fi
     mount -t ext4 $MOUNT_OPTIONS /dev/mapper/${2}_1 /mnt/$2
   else
-    DEVICE_PATH="$(uuid_check $1)"
     mount -t ext4 $MOUNT_OPTIONS $DEVICE_PATH /mnt/$2
   fi
 }
@@ -201,20 +216,20 @@ ext4_mount_disk() {
 # Mount xfs disk and check if it's a LUKS encrypted
 xfs_mount_disk() {
   MOUNT_OPTIONS="-o discard"
+  DEVICE_PATH="$(uuid_check $1)"
   if [ "$3" == "true" ] ; then
     if [ ! -z "$4" ] ; then
-      echo "${4//\"/\\\"}" | cryptsetup open /dev/disk/by-uuid/$1 ${2}_1
+      echo "${4//\"/\\\"}" | cryptsetup open $DEVICE_PATH ${2}_1
     elif [ -f /tmp/luks/$2.key ] ; then
-      cryptsetup open /dev/disk/by-uuid/$1 ${2}_1 --key-file /tmp/luks/$2.key
+      cryptsetup open $DEVICE_PATH ${2}_1 --key-file /tmp/luks/$2.key
     elif [ -f /boot/config/system/luks/$2.key ] ; then
-      cryptsetup open /dev/disk/by-uuid/$1 ${2}_1 --key-file /boot/config/system/luks/$2.key
+      cryptsetup open $DEVICE_PATH ${2}_1 --key-file /boot/config/system/luks/$2.key
     else
       logger "Can't mount encrypted pool $2 without passphrase or keyfile"
       return 1
     fi
     mount -t xfs $MOUNT_OPTIONS /dev/mapper/${2}_1 /mnt/$2
   else
-    DEVICE_PATH="$(uuid_check $1)"
     mount -t xfs $MOUNT_OPTIONS $DEVICE_PATH /mnt/$2
   fi
 }
@@ -469,7 +484,7 @@ do
       do
         DISK_DETAILS=$(echo "$POOL_JSON" | jq -r --arg data_slot "$data_slot" '.data_devices[] | select((.slot | tostring) == $data_slot)')
         DISK_ID_BTRFS=$(echo "$DISK_DETAILS" | jq -r '.id')
-        btrfs_luks_open "$DISK_ID_BTRFS" "$POOL" "$data_slot" "$DECRYPTION_KEY"
+        pool_luks_open "$DISK_ID_BTRFS" "$POOL" "$data_slot" "$DECRYPTION_KEY"
       done
 
       btrfs_mount_pool "/dev/mapper/" "$POOL" "true"
@@ -493,6 +508,59 @@ do
         notify -t "BTRFS" -m "Scrub for $POOL started" -p "alert"
       else
         notify -t "BTRFS" -m "Scrub for $POOL on unclean shutdown is disabled" -p "alert"
+      fi
+    fi
+    chown_pool "$POOL"
+  elif [ "$POOL_TYPE" == "bcachefs" ] ; then
+    create_pool_directory "$POOL" "$POOL_TYPE" || { echo "Pool $POOL already mounted" ; continue ; }
+    logger "Mounting$ENCRYPTED_TEXT bcachefs pool: $POOL"
+    POOL_SHARED=$(echo "$POOL_JSON" | jq -r '.config.shared // false')
+
+    for data_slot in $(echo "$POOL_JSON" | jq -r '.data_devices[].slot')
+    do
+      DISK_DETAILS=$(echo "$POOL_JSON" | jq -r --arg data_slot "$data_slot" '.data_devices[] | select((.slot | tostring) == $data_slot)')
+      DISK_ID=$(echo "$DISK_DETAILS" | jq -r '.id')
+      if [ "$POOL_ENCRYPTED" == "true" ] ; then
+        pool_luks_open "$DISK_ID" "$POOL" "$data_slot" "$DECRYPTION_KEY"
+        EXIT_STATUS=$?
+        if [ "$EXIT_STATUS" != "0" ] ; then
+          rmdir /mnt/$POOL >/dev/null 2>&1
+          continue 2
+        fi
+        MEMBER="/dev/mapper/${POOL}_${data_slot}"
+      else
+        MEMBER="$(uuid_check $DISK_ID)"
+      fi
+      if [ -z "$MEMBER" ] ; then
+        logger "Can't resolve bcachefs member disk$data_slot from pool: $POOL"
+        mount_failure_notify "$POOL"
+        rmdir /mnt/$POOL >/dev/null 2>&1
+        continue 2
+      fi
+      if [ -z "$MEMBERS" ] ; then
+        MEMBERS="$MEMBER"
+      else
+        MEMBERS="$MEMBERS:$MEMBER"
+      fi
+    done
+
+    bcachefs_mount_pool "$MEMBERS" "$POOL"
+    EXIT_STATUS=$?
+    if [ "$EXIT_STATUS" != "0" ] ; then
+      rmdir /mnt/$POOL >/dev/null 2>&1
+      continue
+    fi
+    if [ "$POOL_SHARED" == "true" ] ; then
+      make_shared "$POOL"
+    fi
+    # Start scrub if enabled on unclean shutdown
+    if [ "$UNCLEAN_SHUTDOWN" == "true" ] ; then
+      UNCLEAN_CHECK=$(echo "$POOL_JSON" | jq -r '.config.unclean_check')
+      if [ "$UNCLEAN_CHECK" == "true" ] ; then
+        bcachefs scrub /mnt/$POOL >/dev/null 2>&1 &
+        notify -t "bcachefs" -m "Scrub for $POOL started" -p "alert"
+      else
+        notify -t "bcachefs" -m "Scrub for $POOL on unclean shutdown is disabled" -p "alert"
       fi
     fi
     chown_pool "$POOL"
@@ -532,7 +600,7 @@ do
     chown_pool "$POOL"
   fi
   mount_script "$POOL"
-  unset POOL_JSON DISK_COUNT DISK_NO MOUNTS PARITY_COUNT POOL_ENCRYPTED ENCRYPTED_TEXT KEY EXIT_STATUS UNCLEAN_CHECK
+  unset POOL_JSON DISK_COUNT DISK_NO MOUNTS MEMBERS MEMBER PARITY_COUNT POOL_ENCRYPTED ENCRYPTED_TEXT KEY EXIT_STATUS UNCLEAN_CHECK
 done
 
 # Make sure to remove temporary LUKS files
