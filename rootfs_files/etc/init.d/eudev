@@ -198,7 +198,7 @@ case "$1" in
     else
       log_action_end_msg 0 'timeout'
     fi
-    printf "\033c" > /dev/console 2>/dev/null
+    printf "\033c" > /dev/console 2>/dev/null || printf "\033c" > /dev/tty 2>/dev/null
   ;;
 
   stop)
