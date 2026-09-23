@@ -311,6 +311,12 @@ jobs:
         git clone --depth 1 https://github.com/trapexit/mergerfs-tools
         cp ${{ github.workspace }}/mergerfs-tools/src/* ${{ github.workspace }}/rootfs/tmp/rootfs_files/usr/local/bin/
 
+        # Add mos-boot-files
+        cd ${{ github.workspace }}
+        git clone --depth 1 https://github.com/mos-nas/mos-boot-files
+        cp -R ${{ github.workspace }}/mos-boot-files/config ${{ github.workspace }}/rootfs/tmp/rootfs_files/opt/boot-config-files
+        rm -R ${{ github.workspace }}/rootfs/tmp/rootfs_files/opt/boot-config-files/notify/providers
+
     - name: Modify rootfs
       run: |
         chroot ${{ github.workspace }}/rootfs /tmp/chroot-script.sh "${{ github.event.inputs.node_version }}"
