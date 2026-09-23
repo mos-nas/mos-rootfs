@@ -41,6 +41,20 @@ check_local_master() {
   fi
 }
 
+check_mos_extra() {
+  mkdir -p /boot/config/system/samba
+  if [ ! -f /boot/config/system/samba/global_extra.conf ] ; then
+    cp /etc/samba/global_extra.conf /boot/config/system/samba/global_extra.conf
+  else
+    cp /boot/config/system/samba/global_extra.conf /etc/samba/global_extra.conf
+  fi
+  if [ ! -f /boot/config/system/samba/shares_extra.conf ] ; then
+    cp /etc/samba/shares_extra.conf /boot/config/system/samba/shares_extra.conf
+  else
+    cp /boot/config/system/samba/shares_extra.conf /etc/samba/shares_extra.conf
+  fi
+}
+
 generate_shares() {
   SHARES_JSON="/boot/config/shares.json"
   SHARES_CONFIG="/etc/samba/mos.conf"
@@ -145,6 +159,7 @@ case "$1" in
     log_daemon_msg "Starting $DESC" $NAME
     generate_shares || return 1
     check_local_master
+    check_mos_extra
     start-stop-daemon --start --quiet --oknodo --exec $DAEMON --pidfile $PIDFILE -- -D $SMBDOPTIONS
     log_end_msg $?
   ;;
