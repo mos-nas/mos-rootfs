@@ -226,6 +226,10 @@ if [ -f /boot/config/system/smbpasswd ] ; then
   /bin/cp /boot/config/system/smbpasswd /etc/samba/smbpasswd
 fi
 
+# Make sure all boot files are present
+/usr/bin/rsync -aq --ignore-existing /opt/boot-config-files/ /boot/config/
+/usr/bin/rm -rf /opt/boot-config-files
+
 # Cache json files into RAM
 JSON_FILES=(
   "docker.json"
