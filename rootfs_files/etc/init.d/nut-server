@@ -37,6 +37,7 @@ UPSD_OPTIONS=""
 [ -x "$upsd" ] || exit 0
 
 # MOS Custom: remove existing deprecated config files
+# and remove directory if empty
 [ -f "/boot/config/system/nut/nut.conf" ] \
   && rm -f /boot/config/system/nut/nut.conf
 [ -f "/boot/config/system/nut/ups.conf" ] \
@@ -49,6 +50,7 @@ UPSD_OPTIONS=""
   && rm -f /boot/config/system/nut/upsmon.conf
 [ -f "/boot/config/system/nut/upssched.conf" ] \
   && rm -f /boot/config/system/nut/upssched.conf
+rmdir /boot/config/system/nut 2>/dev/null
 
 # MOS Custom: render /etc/nut files from json
 NUT_JSON="/boot/config/system/nut.json"
