@@ -314,6 +314,7 @@ jobs:
         # Add mos-boot-files
         cd ${{ github.workspace }}
         git clone --depth 1 https://github.com/mos-nas/mos-boot-files
+        mkdir -p ${{ github.workspace }}/rootfs/tmp/rootfs_files/opt
         cp -R ${{ github.workspace }}/mos-boot-files/config ${{ github.workspace }}/rootfs/tmp/rootfs_files/opt/boot-config-files
         rm -R ${{ github.workspace }}/rootfs/tmp/rootfs_files/opt/boot-config-files/notify/providers
 
