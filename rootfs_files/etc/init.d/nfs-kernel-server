@@ -71,13 +71,18 @@ case "$1" in
         [ "$NFS_SHARE_ENABLED" != "true" ] && \
           continue
         NFS_SHARE_FSID=$((NFS_SHARE_FSID + 1))
-        NFS_SHARE_PATH=$(echo "$NFS_SHARE_JSON" | jq -r '.path')
-        NFS_SHARE_SOURCE=$(echo "$NFS_SHARE_JSON" | jq -r '.source')
+        NFS_SHARE_PATH=$(echo "$NFS_SHARE_JSON" | jq -r '.path // empty')
+        NFS_SHARE_SOURCE=$(echo "$NFS_SHARE_JSON" | jq -r '.source // empty | gsub("\\s"; "")')
+        if [ -z "$NFS_SHARE_PATH" ] || [ -z "$NFS_SHARE_SOURCE" ]; then
+          log_warning_msg "Skipping NFS share ${nfs_share}: path and source must not be empty"
+          NFS_SHARE_FSID=$((NFS_SHARE_FSID - 1))
+          continue
+        fi
         NFS_SHARE_RO=$(echo "$NFS_SHARE_JSON" | jq -r 'if .read_only == true then "ro" else "rw" end')
         NFS_SHARE_ANONUID=$(echo "$NFS_SHARE_JSON" | jq -r '.anonuid // empty')
         NFS_SHARE_ANONGID=$(echo "$NFS_SHARE_JSON" | jq -r '.anongid // empty')
-        NFS_SHARE_WRITE_OPERATIONS=$(echo "$NFS_SHARE_JSON" | jq -r '.write_operations')
-        NFS_SHARE_MAPPING=$(echo "$NFS_SHARE_JSON" | jq -r '.mapping')
+        NFS_SHARE_WRITE_OPERATIONS=$(echo "$NFS_SHARE_JSON" | jq -r '.write_operations // empty')
+        NFS_SHARE_MAPPING=$(echo "$NFS_SHARE_JSON" | jq -r '.mapping // empty')
         NFS_SHARE_SECURE=$(echo "$NFS_SHARE_JSON" | jq -r 'if .secure == true then "secure" else "insecure" end')
 
         # Construct NFS_SHARE_OPTIONS
@@ -86,7 +91,11 @@ case "$1" in
           NFS_SHARE_OPTIONS="${NFS_SHARE_OPTIONS},anonuid=${NFS_SHARE_ANONUID}"
         [ ! -z "$NFS_SHARE_ANONGID" ] && \
           NFS_SHARE_OPTIONS="${NFS_SHARE_OPTIONS},anongid=${NFS_SHARE_ANONGID}"
-        NFS_SHARE_OPTIONS="${NFS_SHARE_OPTIONS},${NFS_SHARE_WRITE_OPERATIONS},${NFS_SHARE_MAPPING},${NFS_SHARE_SECURE},fsid=${NFS_SHARE_FSID}"
+        [ ! -z "$NFS_SHARE_WRITE_OPERATIONS" ] && \
+          NFS_SHARE_OPTIONS="${NFS_SHARE_OPTIONS},${NFS_SHARE_WRITE_OPERATIONS}"
+        [ ! -z "$NFS_SHARE_MAPPING" ] && \
+          NFS_SHARE_OPTIONS="${NFS_SHARE_OPTIONS},${NFS_SHARE_MAPPING}"
+        NFS_SHARE_OPTIONS="${NFS_SHARE_OPTIONS},${NFS_SHARE_SECURE},fsid=${NFS_SHARE_FSID}"
 
         echo "$NFS_SHARE_PATH $NFS_SHARE_SOURCE($NFS_SHARE_OPTIONS)" >> /etc/exports
 
