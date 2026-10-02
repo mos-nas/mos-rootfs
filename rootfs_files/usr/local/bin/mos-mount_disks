@@ -96,9 +96,29 @@ mergerfs_mount_disk() {
   fi
 }
 
+# Construct mergerfs config string
+mergerfs_build_options() {
+  GLOBAL_OPTIONS=$(echo "$1" | jq -r '.config.global_options // [] | join(",")')
+  if [ -z "$GLOBAL_OPTIONS" ] ; then
+    GLOBAL_OPTIONS="cache.files=off,dropcacheonclose=true"
+  fi
+  CREATE_POLICY=$(echo "$1" | jq -r '.config.policies.create // "mspmfs"')
+  SEARCH_POLICY=$(echo "$1" | jq -r '.config.policies.search // "ff"')
+  MIN_FREE_SPACE=$(echo "$1" | jq -r '.config.minfreespace // empty')
+  MOVE_ON_ENOSPC=$(echo "$1" | jq -r '.config.moveonenospc | select(. != null)')
+  MERGERFS_OPTIONS="defaults,allow_other,use_ino,$GLOBAL_OPTIONS,category.create=$CREATE_POLICY,category.search=$SEARCH_POLICY"
+  if [ ! -z "$MIN_FREE_SPACE" ] ; then
+    MERGERFS_OPTIONS="$MERGERFS_OPTIONS,minfreespace=$MIN_FREE_SPACE"
+  fi
+  if [ ! -z "$MOVE_ON_ENOSPC" ] ; then
+    MERGERFS_OPTIONS="$MERGERFS_OPTIONS,moveonenospc=$MOVE_ON_ENOSPC"
+  fi
+  echo "$MERGERFS_OPTIONS"
+}
+
 # Mount mergerfs pool to /mnt
 mergerfs_mount_pool() {
-  mergerfs -o defaults,allow_other,use_ino,category.create=$3,category.search=$4 $1 /mnt/$2
+  mergerfs -o "$3" $1 /mnt/$2
   EXIT_STATUS=$?
   if [ "$EXIT_STATUS" != "0" ] ; then
      mount_failure_notify "$2"
@@ -269,8 +289,7 @@ do
   fi
   if [ "$POOL_TYPE" == "mergerfs" ] ; then
     create_pool_directory "$POOL" "$POOL_TYPE" || { echo "Pool $POOL already mounted" ; continue ; }
-    CREATE_POLICY=$(echo "$POOL_JSON" | jq -r '.config.policies.create')
-    SEARCH_POLICY=$(echo "$POOL_JSON" | jq -r '.config.policies.search')
+    MERGERFS_OPTIONS=$(mergerfs_build_options "$POOL_JSON")
     POOL_SHARED=$(echo "$POOL_JSON" | jq -r '.config.shared // false')
     for data_slot in $(echo "$POOL_JSON" | jq -r '.data_devices[].slot')
     do
@@ -293,7 +312,7 @@ do
       fi
     done
 
-    mergerfs_mount_pool "$MOUNTS" "$POOL" "$CREATE_POLICY" "$SEARCH_POLICY"
+    mergerfs_mount_pool "$MOUNTS" "$POOL" "$MERGERFS_OPTIONS"
     if [ "$POOL_SHARED" = "true" ] ; then
       make_shared "$POOL"
     fi
@@ -369,7 +388,7 @@ do
       if [ -e "/dev/disk/by-id/$ID" ] ; then
         echo "import $parity $DEV_PATH 0 $SIZE 0 $ID" > /proc/nmdcmd
       else
-        echo "import $disk '' 0 0 0 ''" > /proc/nmdcmd
+        echo "import $parity '' 0 0 0 ''" > /proc/nmdcmd
       fi
     done
 
@@ -380,10 +399,13 @@ do
       UUID=$(grep "diskId\.$disk=" <<< "$NONRAID_STAT" | cut -d '=' -f2)
       [ -z "$UUID" ] && \
         continue
-      DEV_PATH=$(readlink -f /dev/disk/by-uuid/$UUID | sed 's|^/dev/||')
-      SIZE=$(( $(blockdev --getsz /dev/disk/by-uuid/$UUID) / 2 ))
+      # Disks still being cleared have no filesystem yet and are tracked by their partition UUID
+      DEV_LINK="/dev/disk/by-uuid/$UUID"
+      [ -e "$DEV_LINK" ] || DEV_LINK="/dev/disk/by-partuuid/$UUID"
+      DEV_PATH=$(readlink -f $DEV_LINK | sed 's|^/dev/||')
+      SIZE=$(( $(blockdev --getsz $DEV_LINK) / 2 ))
       # If disk is found then import it otherwise mount it as missing
-      if [ -e "/dev/disk/by-uuid/$UUID" ] ; then
+      if [ -e "$DEV_LINK" ] ; then
         echo "import $disk $DEV_PATH 0 $SIZE 0 $UUID" > /proc/nmdcmd
       else
         echo "import $disk '' 0 0 0 ''" > /proc/nmdcmd
@@ -403,8 +425,7 @@ do
       continue
     fi
 
-    CREATE_POLICY=$(echo "$POOL_JSON" | jq -r '.config.policies.create')
-    SEARCH_POLICY=$(echo "$POOL_JSON" | jq -r '.config.policies.search')
+    MERGERFS_OPTIONS=$(mergerfs_build_options "$POOL_JSON")
     POOL_SHARED=$(echo "$POOL_JSON" | jq -r '.config.shared // false')
     for data_slot in $(echo "$POOL_JSON" | jq -r '.data_devices[].slot')
     do
@@ -435,7 +456,7 @@ do
       fi
     done
 
-    mergerfs_mount_pool "$MOUNTS" "$POOL" "$CREATE_POLICY" "$SEARCH_POLICY"
+    mergerfs_mount_pool "$MOUNTS" "$POOL" "$MERGERFS_OPTIONS"
     if [ "$POOL_SHARED" = "true" ] ; then
       make_shared "$POOL"
     fi
@@ -557,7 +578,8 @@ do
     if [ "$UNCLEAN_SHUTDOWN" == "true" ] ; then
       UNCLEAN_CHECK=$(echo "$POOL_JSON" | jq -r '.config.unclean_check')
       if [ "$UNCLEAN_CHECK" == "true" ] ; then
-        bcachefs scrub /mnt/$POOL >/dev/null 2>&1 &
+        mkdir -p /run/bcachefs
+        bcachefs scrub /mnt/$POOL >/run/bcachefs/$POOL.scrub 2>&1 &
         notify -t "bcachefs" -m "Scrub for $POOL started" -p "alert"
       else
         notify -t "bcachefs" -m "Scrub for $POOL on unclean shutdown is disabled" -p "alert"
@@ -600,7 +622,7 @@ do
     chown_pool "$POOL"
   fi
   mount_script "$POOL"
-  unset POOL_JSON DISK_COUNT DISK_NO MOUNTS MEMBERS MEMBER PARITY_COUNT POOL_ENCRYPTED ENCRYPTED_TEXT KEY EXIT_STATUS UNCLEAN_CHECK
+  unset POOL_JSON DISK_COUNT DISK_NO MOUNTS MERGERFS_OPTIONS MEMBERS MEMBER PARITY_COUNT POOL_ENCRYPTED ENCRYPTED_TEXT KEY EXIT_STATUS UNCLEAN_CHECK
 done
 
 # Make sure to remove temporary LUKS files
