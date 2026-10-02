@@ -35,6 +35,9 @@ try {
   // ENV file optional, continue without it
 }
 
+// Services skip their background monitors, those run in the API process only
+process.env.MOS_API_CLI = '1';
+
 // Services - lazy loaded to avoid errors
 const getService = (name) => require(path.join(API_ROOT, 'src', 'services', `${name}.service`));
 
@@ -80,6 +83,29 @@ const commands = {
       do {
         await new Promise(resolve => setTimeout(resolve, 5000));
         status = await poolsService.executeBtrfsScrubOperation(id, 'status');
+      } while (status.running);
+
+      return { ...result, completed: true };
+    }
+  },
+
+  // bcachefs Scrub
+  'bcachefs:scrub': {
+    description: 'Start a Scrub for a bcachefs Pool',
+    handler: async (args) => {
+      const id = args[0];
+
+      if (!id) {
+        throw new Error('bcachefs Pool ID is required. Usage: bcachefs:scrub <ID>');
+      }
+
+      const poolsService = getPoolsService();
+      const result = await poolsService.executeBcachefsScrubOperation(id, 'start');
+
+      let status;
+      do {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        status = await poolsService.executeBcachefsScrubOperation(id, 'status');
       } while (status.running);
 
       return { ...result, completed: true };
