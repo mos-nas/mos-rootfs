@@ -379,6 +379,7 @@ do
 
     # Loop through parity disks
     PARITY_COUNT=0
+    PARITY_DEVS=""
     for parity in 0 29
     do
       # Skip unassigned disks
@@ -387,6 +388,7 @@ do
         continue
       ((PARITY_COUNT++))
       DEV_PATH=$(readlink -f /dev/disk/by-id/$ID | sed 's|^/dev/||')
+      PARITY_DEVS="$PARITY_DEVS $DEV_PATH"
       SIZE=$(( $(blockdev --getsz /dev/disk/by-id/$ID) / 2 ))
       # If parity is found then import it otherwise mount it as missing
       if [ -e "/dev/disk/by-id/$ID" ] ; then
@@ -397,24 +399,50 @@ do
     done
 
     # Loop through data disks
+    AMBIGUOUS_DISK=""
     for disk in {1..28}
     do
       # Skip unassigned disks
       UUID=$(grep "diskId\.$disk=" <<< "$NONRAID_STAT" | cut -d '=' -f2)
       [ -z "$UUID" ] && \
         continue
-      # Disks still being cleared have no filesystem yet and are tracked by their partition UUID
-      DEV_LINK="/dev/disk/by-uuid/$UUID"
-      [ -e "$DEV_LINK" ] || DEV_LINK="/dev/disk/by-partuuid/$UUID"
-      DEV_PATH=$(readlink -f $DEV_LINK | sed 's|^/dev/||')
-      SIZE=$(( $(blockdev --getsz $DEV_LINK) / 2 ))
+      # Old replaced disks and single-disk parity share the UUID, prefer partuuid
+      PARTUUID=$(echo "$POOL_JSON" | jq -r --arg slot "$disk" '.data_devices[] | select((.slot | tostring) == $slot) | .partuuid // empty')
+      if [ -n "$PARTUUID" ] ; then
+        DEV_PATH=$(readlink -f /dev/disk/by-partuuid/$PARTUUID 2>/dev/null | sed 's|^/dev/||')
+        [ -e "/dev/disk/by-partuuid/$PARTUUID" ] || DEV_PATH=""
+      else
+        # Disks added with clear are tracked by their partition UUID
+        CANDIDATES=""
+        for name in $(lsblk -Pno NAME,UUID,PARTUUID | grep -E "UUID=\"$UUID\"" | sed 's|^NAME="\([^"]*\)".*|\1|')
+        do
+          case "$name" in nmd*|dm-*) continue ;; esac
+          case " $PARITY_DEVS " in *" $name "*) continue ;; esac
+          CANDIDATES="$CANDIDATES $name"
+        done
+        CANDIDATES=$(echo $CANDIDATES)
+        if [ "$(echo $CANDIDATES | wc -w)" -gt 1 ] ; then
+          AMBIGUOUS_DISK="disk$disk ($UUID on $CANDIDATES)"
+          break
+        fi
+        DEV_PATH="$CANDIDATES"
+      fi
       # If disk is found then import it otherwise mount it as missing
-      if [ -e "$DEV_LINK" ] ; then
+      if [ -n "$DEV_PATH" ] && [ -e "/dev/$DEV_PATH" ] ; then
+        SIZE=$(( $(blockdev --getsz /dev/$DEV_PATH) / 2 ))
         echo "import $disk $DEV_PATH 0 $SIZE 0 $UUID" > /proc/nmdcmd
       else
         echo "import $disk '' 0 0 0 ''" > /proc/nmdcmd
       fi
     done
+
+    if [ -n "$AMBIGUOUS_DISK" ] ; then
+      logger "Can't mount nonraid pool $POOL, $AMBIGUOUS_DISK is ambiguous. Please remove or wipe the replaced old disk."
+      notify -t "nonraid" -m "Pool $POOL not mounted: $AMBIGUOUS_DISK is ambiguous. Please remove or wipe the replaced old disk." -p "alert"
+      modprobe -r md-nonraid
+      rmdir /mnt/$POOL /var/mergerfs/$POOL >/dev/null 2>&1
+      continue
+    fi
 
     # Try to start nonraid
     NONRAID_STATUS=$(cat /proc/nmdstat | grep "mdState=" | cut -d '=' -f2)
