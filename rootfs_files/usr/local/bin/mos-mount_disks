@@ -280,6 +280,10 @@ do
     continue
   fi
   POOL_TYPE=$(echo "$POOL_JSON" | jq -r '.type')
+  # Single device pool fallback
+  if [ "$POOL_TYPE" == "single" ] ; then
+    POOL_TYPE=$(echo "$POOL_JSON" | jq -r '.data_devices[0].filesystem')
+  fi
   POOL_ENCRYPTED=$(echo "$POOL_JSON" | jq '.config.encrypted')
   if [ "$POOL_ENCRYPTED" == "true" ] ; then
     ENCRYPTED_TEXT=" encrypted"
