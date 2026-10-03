@@ -47,6 +47,11 @@ const getPoolsService = () => {
   return new PoolsService();
 };
 
+const getRemotesService = () => {
+  const RemotesService = getService('remotes');
+  return new RemotesService();
+};
+
 const commands = {
   // Hub
   'hub:update': {
@@ -139,6 +144,34 @@ const commands = {
   'disks:list': {
     description: 'List all disks',
     handler: async () => await getService('disks').getAllDisks()
+  },
+
+  // Remotes
+  'remotes:list': {
+    description: 'List all remotes with mount status',
+    handler: async () => await getRemotesService().listRemotes()
+  },
+
+  'remotes:mount': {
+    description: 'Mount a remote: remotes:mount <ID>',
+    handler: async (args) => {
+      const id = args[0];
+      if (!id) {
+        throw new Error('Remote ID is required. Usage: remotes:mount <ID>');
+      }
+      return await getRemotesService().mountRemote(id);
+    }
+  },
+
+  'remotes:unmount': {
+    description: 'Unmount a remote: remotes:unmount <ID>',
+    handler: async (args) => {
+      const id = args[0];
+      if (!id) {
+        throw new Error('Remote ID is required. Usage: remotes:unmount <ID>');
+      }
+      return await getRemotesService().unmountRemote(id);
+    }
   },
 
   // LXC
