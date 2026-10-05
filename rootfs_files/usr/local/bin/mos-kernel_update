@@ -80,7 +80,7 @@ fi
 
 # Display message if upgrading to the same version
 if [ "$VERSION" = "$CURRENT_VERSION" ] ; then
-  notify -t "MOS Kernel" -m "Kernel is the same as the current running version, continung in 10 seconds" -p "warning"
+  notify -t "MOS Kernel" -m "Kernel is the same as the current running version, continuing in 10 seconds" -p "warning"
   sleep 10
   notify -t "MOS Kernel" -m "Redownloading and installing MOS Kernel: $VERSION, you will be notified when it is safe to reboot" -p "normal"
 else

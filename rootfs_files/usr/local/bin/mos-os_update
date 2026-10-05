@@ -103,7 +103,7 @@ fi
 
 # Display message if upgrading to the same version
 if [ "$VERSION" = "$CURRENT_VERSION" ] ; then
-  notify -t "MOS Update" -m "Version is the same as the current running MOS version, continung in 10 seconds" -p "warning"
+  notify -t "MOS Update" -m "Version is the same as the current running MOS version, continuing in 10 seconds" -p "warning"
   sleep 10
   notify -t "MOS Update" -m "Redownloading and installing MOS version: $VERSION, you will be notified when it is safe to reboot" -p "normal"
 else
