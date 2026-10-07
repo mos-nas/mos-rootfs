@@ -128,8 +128,6 @@ mkdir -p /var/mos/installer/esp /var/mos/installer/boot
 
 # Set LABEL
 if [ "$7" == "true" ] ; then
-  LABEL="MOS"
-else
   EXISTING_LABEL=$(sed -n '/^menuentry "MOS"/,/^}/{ s/.*BOOT_LABEL=\([^ ]*\).*/\1/p }' /var/mos/installer/boot/grub/grub.cfg | head -n1)
   if [ -z "$EXISTING_LABEL" ] ; then
     LABEL="MOS_BACKUP"
@@ -137,6 +135,8 @@ else
     EXISTING_LABEL="${EXISTING_LABEL//[\"\']/}"
     LABEL="${EXISTING_LABEL}_BACKUP"
   fi
+else
+  LABEL="MOS"
 fi
 
 # If it's a NVME or MMC add p for partitions
