@@ -127,7 +127,17 @@ fi
 mkdir -p /var/mos/installer/esp /var/mos/installer/boot
 
 # Set LABEL
-LABEL="MOS"
+if [ "$7" == "true" ] ; then
+  LABEL="MOS"
+else
+  EXISTING_LABEL=$(sed -n '/^menuentry "MOS"/,/^}/{ s/.*BOOT_LABEL=\([^ ]*\).*/\1/p }' /var/mos/installer/boot/grub/grub.cfg | head -n1)
+  if [ -z "$EXISTING_LABEL" ] ; then
+    LABEL="MOS_BACKUP"
+  else
+    EXISTING_LABEL="${EXISTING_LABEL//[\"\']/}"
+    LABEL="${EXISTING_LABEL}_BACKUP"
+  fi
+fi
 
 # If it's a NVME or MMC add p for partitions
 case $DISK in
@@ -215,7 +225,7 @@ if [ "$FS_TYPE" != "vfat" ] ; then
 
   # Format ESP partition
   echo "Formatting ESP Partition with FAT32"
-  if ! mkfs.fat -F32 -c -I ${DISK}${PARTITION}1 ; then
+  if ! mkfs.fat -F32 -I ${DISK}${PARTITION}1 ; then
     echo "ERROR: Format from ESP Partition failed"
     [ "$5" == "api" ] && notify -t "MOS Installation" -m "Error formatting ESP Partition" -p "alert"
     exit 1
@@ -307,7 +317,7 @@ else
 
   # Format partition
   echo "Formatting Partition with FAT32"
-  if ! mkfs.fat -F32 -c -I ${DISK}${PARTITION}1 ; then
+  if ! mkfs.fat -F32 -I ${DISK}${PARTITION}1 ; then
     echo "ERROR: Formatting failed"
     [ "$5" == "api" ] && notify -t "MOS Installation" -m "Error formatting failed" -p "alert"
     exit 1
@@ -343,6 +353,16 @@ else
     exit 1
   fi
 fi
+
+# Add custom label if enabled
+if [ "$7" == "true" ] ; then
+  if [ -z "$EXISTING_LABEL" ] ; then
+    sed -i '/^menuentry "MOS"/,/^}/{ /^[[:space:]]*linux[[:space:]]/ s/$/ BOOT_LABEL='"$LABEL"'/ }' /var/mos/installer/boot/grub/grub.cfg
+  else
+    sed -i "/^menuentry \"MOS\"/,/^}/ s/BOOT_LABEL=[\"']\?$EXISTING_LABEL[\"']\?/BOOT_LABEL=$LABEL/" /var/mos/installer/boot/grub/grub.cfg
+  fi
+fi
+
 # Sync and umount
 echo "Syncinc Filesystems"
 sync
