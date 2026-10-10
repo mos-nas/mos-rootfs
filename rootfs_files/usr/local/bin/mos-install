@@ -317,7 +317,7 @@ else
 
   # Format partition
   echo "Formatting Partition with FAT32"
-  if ! mkfs.fat -F32 -I ${DISK}${PARTITION}1 ; then
+  if ! mkfs.fat -F32 -I -n "$LABEL" ${DISK}${PARTITION}1 ; then
     echo "ERROR: Formatting failed"
     [ "$5" == "api" ] && notify -t "MOS Installation" -m "Error formatting failed" -p "alert"
     exit 1
