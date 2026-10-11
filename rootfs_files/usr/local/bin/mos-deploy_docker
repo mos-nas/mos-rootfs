@@ -321,7 +321,7 @@ fi
 
 # Download/Update icon depending on mode and if icon is set
 icon=$(echo "$config" | jq -r '.icon // null')
-if [[ "$icon" != "null" && -n "$icon" ]] ; then
+if [[ "$icon" != "null" && -n "$icon" && "$icon" != mdi-* ]] ; then
   if [[ "$UPDATE" != "true" && "$RECREATE" != "true" ]] ; then
     wget -q --timeout=10 --tries=2 -O "/var/lib/docker/mos/icons/$name.png" "$icon"
     ES=$?
@@ -340,6 +340,8 @@ if [[ "$icon" != "null" && -n "$icon" ]] ; then
       cp "/var/lib/docker/mos/icons/$name.png" "/var/www/docker_icons/$name.png" 2>/dev/null
     fi
   fi
+elif [[ "$icon" == mdi-* ]] ; then
+  rm -f "/var/lib/docker/mos/icons/$name.png" 2>/dev/null
 fi
 
 if [[ ! -d /boot/config/system/docker/templates ]] ; then
