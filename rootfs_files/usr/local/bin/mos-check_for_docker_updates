@@ -42,6 +42,12 @@ do
   LOCAL_SHA=$(echo "$CONTAINERS_JSON" | jq -r --arg name "$container" '.[] | select(.name == $name) | .local')
   REMOTE_SHA_OLD=$(echo "$CONTAINERS_JSON" | jq -r --arg name "$container" '.[] | select(.name == $name) | .remote')
 
+  # Skip update check for local images
+  if echo "$REPO" | grep -qE '^sha:[0-9a-f]+|^[0-9a-f]{12,}$' ; then
+    echo "Skipping update check for $container (local image)"
+    continue
+  fi
+
   # Check if a tag is applied, if not add :latest
   if echo "$REPO" | grep -q ':' ; then
     IMAGE="$REPO"
@@ -118,6 +124,12 @@ do
   REPO=$(echo "$COMPOSE_JSON" | jq -r --arg name "$container" '.[].services.[] | select(.container == $name) | .repo')
   LOCAL_SHA=$(echo "$COMPOSE_JSON" | jq -r --arg name "$container" '.[].services.[] | select(.container == $name) | .local')
   REMOTE_SHA_OLD=$(echo "$COMPOSE_JSON" | jq -r --arg name "$container" '.[].services.[] | select(.container == $name) | .remote')
+
+  # Skip update check for local images
+  if echo "$REPO" | grep -qE '^sha:[0-9a-f]+|^[0-9a-f]{12,}$' ; then
+    echo "Skipping update check for $container (local image)"
+    continue
+  fi
 
   # Check if a tag is applied, if not add :latest
   if echo "$REPO" | grep -q ':' ; then
