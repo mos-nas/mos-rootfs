@@ -370,7 +370,12 @@ CONTAINERS_FILE=$(cat /var/lib/docker/mos/containers 2>/dev/null)
 
 # Set local and remote SHA for container in containers file
 if [[ -z "$sha256_local" ]] ; then
-  sha256_local=$(docker image inspect "$repo" --format '{{index .RepoDigests 0}}' | cut -d '@' -f2-)
+  digest_count=$(docker image inspect "$repo" --format '{{len .RepoDigests}}' 2>/dev/null)
+  if [[ ! -z "$digest_count" && "$digest_count" != "0" ]] ; then
+    sha256_local=$(docker image inspect "$repo" --format '{{index .RepoDigests 0}}' | cut -d '@' -f2-)
+  else
+    sha256_local=$(docker image inspect "$repo" --format '{{.Id}}' | cut -d ':' -f2-)
+  fi
 fi
 REMOTE_SHA=$(echo "$CONTAINERS_FILE" | jq --arg name "$name" -r '.[] | select(.name == $name) | .remote')
 PREVIOUS_REPO=$(echo "$CONTAINERS_FILE" | jq --arg name "$name" -r '.[] | select(.name == $name) | .repo')
