@@ -10,7 +10,15 @@ elif [ "$ARCHITECTURE" == "aarch64" ] ; then
   ADDITIONAL_PACKAGES="device-tree-compiler"
 fi
 
+cat > /rootfs/etc/apt/sources.list << 'EOF'
+deb http://deb.devuan.org/merged excalibur main
+deb http://deb.devuan.org/merged excalibur-updates main
+deb http://deb.devuan.org/merged excalibur-security main
+EOF
+
 apt-get update
+apt-get -y upgrade
+
 DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends --no-install-suggests curl wget nano htop util-linux e2fsprogs dmidecode \
   iputils-ping jq openssh-server parted nvme-cli xfsprogs btrfs-progs ifupdown resolvconf udev git bridge-utils acpid git smbclient linux-cpupower \
   isc-dhcp-client acpi-support-base nginx tree samba xz-utils rsyslog ntpsec kbd console-data hdparm smartmontools at netcat-openbsd cryptsetup \
