@@ -10,7 +10,7 @@ elif [ "$ARCHITECTURE" == "aarch64" ] ; then
   ADDITIONAL_PACKAGES="device-tree-compiler"
 fi
 
-cat > /rootfs/etc/apt/sources.list << 'EOF'
+cat > /etc/apt/sources.list << 'EOF'
 deb http://deb.devuan.org/merged excalibur main
 deb http://deb.devuan.org/merged excalibur-updates main
 deb http://deb.devuan.org/merged excalibur-security main
