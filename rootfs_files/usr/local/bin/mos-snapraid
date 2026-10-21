@@ -3,7 +3,7 @@
 if [ -z "$1" ] ; then
   exit 1
 elif [ ! -f /boot/config/snapraid/$1.conf ] ; then
-  echo "ERROR: SnapRAID configuration $1.config not found"
+  echo "ERROR: SnapRAID configuration $1.conf not found"
   exit 1
 fi
 if [ -z "$2" ] ; then
@@ -12,7 +12,7 @@ fi
 
 # Check if SnapRAID operation is already running
 if [ "$2" != "force_stop" ] && [ -f /run/snapraid/$1.socket ] ; then
-  echo "ERROR: Operation for Pool: $2 already running"
+  echo "ERROR: Operation for Pool: $1 already running"
   exit 1
 fi
 
@@ -23,7 +23,7 @@ if [ "$2" = "force_stop" ] ; then
     kill -9 $(pgrep -f "snapraid -c /boot/config/snapraid/$1.conf") 2>/dev/null
     kill -9 $(pgrep -f "mos-snapraid $1" | grep -v $$) 2>/dev/null
     rm -f /run/snapraid/$1.socket
-    notify -t "SnapRAID" -m "SnapRAID operation for Pool $1 forcfully stopped" -p "warning"
+    notify -t "SnapRAID" -m "SnapRAID operation for Pool $1 forcefully stopped" -p "warning"
     echo "SnapRAID operation for Pool: $1 forcefully stopped"
     exit 0
   else
@@ -87,7 +87,7 @@ done
   sync
   sleep 180
 
-  # Put disks into power stat that they where before running the check
+  # Put disks into power state that they were before running the operation
   for disk_info in "${disk_array[@]}"; do
     if [ "${disk_info##*:}" = "0" ] ; then
       hdparm -y $(realpath /dev/disk/by-uuid/${disk_info%%:*})
@@ -123,8 +123,19 @@ done
       notify -t "SnapRAID" -m "SnapRAID operation $2 for Pool: $1 completed, $STATUS" -p "normal"
     fi
   else
-    # Send end notification for other operations than check
-    notify -t "SnapRAID" -m "SnapRAID operation $2 for Pool: $1 completed" -p "normal"
+    # For other operations (sync, scrub, fix): check the log for errors
+    HAS_ERROR=0
+    if grep -q "msg:fatal:" /var/log/snapraid/$1; then
+      HAS_ERROR=1
+    elif grep -q "msg:error:" /var/log/snapraid/$1; then
+      HAS_ERROR=1
+    fi
+
+    if [ "$HAS_ERROR" -ne 0 ]; then
+      notify -t "SnapRAID" -m "SnapRAID operation $2 for Pool: $1 completed with errors, please check your logs" -p "alert"
+    else
+      notify -t "SnapRAID" -m "SnapRAID operation $2 for Pool: $1 completed" -p "normal"
+    fi
   fi
 
   # Remove socket file
