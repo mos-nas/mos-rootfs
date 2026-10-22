@@ -114,6 +114,8 @@ do
       docker-compose $COMPOSE_ARGS down
       docker-compose $COMPOSE_ARGS pull
       docker-compose $COMPOSE_ARGS up -d --remove-orphans
+      # Sync local SHAs to remote SHAs via API
+      mos-api_cli compose:sync-shas "$stack" >/dev/null 2>&1
       CONTAINER_UPDATES+=("$stack")
     else
       echo "ERROR: Stack directory $DOCKER_APPDATA/compose_$stack not found"
