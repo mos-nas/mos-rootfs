@@ -288,6 +288,18 @@ const commands = {
     handler: async () => await getService('nut').getStatus()
   },
 
+  // Docker Compose
+  'compose:sync-shas': {
+    description: 'Sync local SHAs to remote SHAs for a compose stack: compose:sync-shas <name>',
+    handler: async (args) => {
+      const name = args[0];
+      if (!name) {
+        throw new Error('Stack name is required. Usage: compose:sync-shas <name>');
+      }
+      return await getService('dockercompose').syncStackShas(name);
+    }
+  },
+
   // Help
   'help': {
     description: 'Show this help message',
