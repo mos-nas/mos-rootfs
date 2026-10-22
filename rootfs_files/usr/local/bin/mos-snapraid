@@ -127,7 +127,7 @@ done
     HAS_ERROR=0
     if grep -q "msg:fatal:" /var/log/snapraid/$1; then
       HAS_ERROR=1
-    elif grep -q "msg:error:" /var/log/snapraid/$1; then
+    elif grep -q "^summary:exit:error" /var/log/snapraid/$1; then
       HAS_ERROR=1
     fi
 
