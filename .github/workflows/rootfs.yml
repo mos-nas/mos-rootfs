@@ -384,7 +384,7 @@ jobs:
         API_V=$(date -d @"$(git -C $ROOTFS/usr/local/lib/mos-api log -1 --format=%ct)" "+%Y%m%d-%H%M")
         rm -rf $ROOTFS/usr/local/lib/mos-api/.git $ROOTFS/usr/local/lib/mos-api/node_modules $ROOTFS/usr/local/lib/mos-api/package-lock.json
         cd $ROOTFS/usr/local/lib/mos-api
-        npm install
+        npm install --omit=dev
         mv $ROOTFS/usr/local/lib/mos-api/node_modules $ROOTFS/usr/local/lib/mos-api-node_modules
         rm -f $ROOTFS/usr/local/lib/mos-api/package-lock.json
         chown -R root:root $ROOTFS/usr/local/lib/mos-api
