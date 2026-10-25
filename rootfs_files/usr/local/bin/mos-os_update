@@ -53,7 +53,7 @@ rollback_mos() {
   fi
 
   rm -rf /boot/rollback
-  echo "MOS Rollback $VERSION" >> /var/mos/reboot_pending
+  echo "MOS Rollback $ROLLBACK_VERSION" >> /var/mos/reboot_pending
   exit 0
 }
 
