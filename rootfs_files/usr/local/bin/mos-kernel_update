@@ -40,6 +40,7 @@ rollback_kernel() {
 
   rm -rf /boot/rollback/kernel
   notify -t "MOS Kernel" -m "Kernel rollback done, please reboot" -p "normal"
+  echo "MOS Kernel Rollback $ROLLBACK_VERSION" >> /var/mos/reboot_pending
   exit 0
 }
 
@@ -231,3 +232,5 @@ if [ "$UPDATE_MICROCODE" != "false" ] ; then
 fi
 
 notify -t "MOS Kernel" -m "MOS Kernel update done, please reboot" -p "normal"
+
+echo "MOS Kernel Update $VERSION" >> /var/mos/reboot_pending
