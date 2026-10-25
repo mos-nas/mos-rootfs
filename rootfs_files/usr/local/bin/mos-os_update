@@ -53,6 +53,7 @@ rollback_mos() {
   fi
 
   rm -rf /boot/rollback
+  echo "MOS Rollback $VERSION" >> /var/mos/reboot_pending
   exit 0
 }
 
@@ -94,7 +95,7 @@ mkdir -p /var/mos/mos-update/update >/dev/null 2>&1
 if [ "$1" = "latest" ] ; then
   VERSION=$(jq --arg channel "$2" -r '.[] | select(.tag_name | contains($channel)) | .tag_name' /var/mos/mos-update/releases.json | sort -V | tail -1)
   if [ -z "$VERSION" ] ; then
-    notify -t "MOS Update" -m "No latest MOS version in Channel $1 found" -p "alert"
+    notify -t "MOS Update" -m "No latest MOS version in Channel $2 found" -p "alert"
     exit 1
   fi
 else
@@ -333,4 +334,5 @@ if [ "$UPDATE_MICROCODE" = "true" ] ; then
   fi
 fi
 
+echo "MOS Update $VERSION" >> /var/mos/reboot_pending
 exit 0
