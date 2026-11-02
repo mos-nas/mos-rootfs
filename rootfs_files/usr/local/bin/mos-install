@@ -121,7 +121,7 @@ if [ "$3" != "quiet" ] ; then
   esac
 fi
 
-[ "$5" == "api" ] && notify -t "MOS Installation" -m "Installation started, please wait" -p "normal"
+[ "$5" == "api" ] && notify -t "MOS Installation" -m "Installation started, please wait" -p "info"
 
 # Create directories
 mkdir -p /var/mos/installer/esp /var/mos/installer/boot

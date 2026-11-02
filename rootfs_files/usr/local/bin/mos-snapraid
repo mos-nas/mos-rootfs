@@ -79,7 +79,7 @@ done
 # Start SnapRAID operation in background
 {
   # Send notification and start SnapRAID operation
-  notify -t "SnapRAID" -m "Starting SnapRAID operation $2 for Pool: $1" -p "normal"
+  notify -t "SnapRAID" -m "Starting SnapRAID operation $2 for Pool: $1" -p "info"
   snapraid -c /boot/config/snapraid/$1.conf$FIX_DISKS -l ">&2" $2 2>&1 1>/run/snapraid/$1.socket \
     | tail -c "${SNAPRAID_LOG_LIMIT:-20971520}" > /var/log/snapraid/$1
 

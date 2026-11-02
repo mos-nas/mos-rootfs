@@ -29,7 +29,7 @@ rollback_kernel() {
 
   # Check if rollback version is in place
   if [ -f /boot/rollback/kernel/image ] ; then
-    notify -t "MOS Kernel" -m "Rolling back to Kernel version: $ROLLBACK_VERSION" -p "normal"
+    notify -t "MOS Kernel" -m "Rolling back to Kernel version: $ROLLBACK_VERSION" -p "info"
     mv /boot/rollback/kernel/image* /boot/
     mv /boot/rollback/kernel/drivers* /boot/
     mv /boot/rollback/kernel/microcode* /boot/
@@ -81,14 +81,14 @@ fi
 
 # Display message if upgrading to the same version
 if [ "$VERSION" = "$CURRENT_VERSION" ] ; then
-  notify -t "MOS Kernel" -m "Kernel is the same as the current running version, continuing in 10 seconds" -p "warning"
+  notify -t "MOS Kernel" -m "Kernel is the same as the current running version, continuing in 10 seconds" -p "info"
   sleep 10
-  notify -t "MOS Kernel" -m "Redownloading and installing MOS Kernel: $VERSION, you will be notified when it is safe to reboot" -p "normal"
+  notify -t "MOS Kernel" -m "Redownloading and installing MOS Kernel: $VERSION, you will be notified when it is safe to reboot" -p "info"
 else
   if [ "$VERSION" != "$(jq -r '.mos.recommended_kernel' /etc/mos-release.json)" ] ; then
     notify -t "MOS Kernel" -m "Changing Kernel version from: $CURRENT_VERSION to version: $VERSION, you will be notified when it is safe to reboot. Please note that running a non recommended Kernel versions can lead to instability." -p "warning"
   else
-    notify -t "MOS Kernel" -m "Changing Kernel version from: $CURRENT_VERSION to version: $VERSION, you will be notified when it is safe to reboot" -p "normal"
+    notify -t "MOS Kernel" -m "Changing Kernel version from: $CURRENT_VERSION to version: $VERSION, you will be notified when it is safe to reboot" -p "info"
   fi
 fi
 

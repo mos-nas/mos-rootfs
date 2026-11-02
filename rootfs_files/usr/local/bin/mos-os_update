@@ -29,7 +29,7 @@ rollback_mos() {
 
   # Check if rollback version is in place
   if [ -f /boot/rollback/rootfs ] ; then
-    notify -t "MOS Update" -m "Rolling back to MOS version: $ROLLBACK_VERSION" -p "normal"
+    notify -t "MOS Update" -m "Rolling back to MOS version: $ROLLBACK_VERSION" -p "info"
     mv /boot/rollback/rootfs* /boot/
   else
     notify -t "MOS Update" -m "No MOS release to roll back to found" -p "warning"
@@ -104,11 +104,11 @@ fi
 
 # Display message if upgrading to the same version
 if [ "$VERSION" = "$CURRENT_VERSION" ] ; then
-  notify -t "MOS Update" -m "Version is the same as the current running MOS version, continuing in 10 seconds" -p "warning"
+  notify -t "MOS Update" -m "Version is the same as the current running MOS version, continuing in 10 seconds" -p "info"
   sleep 10
-  notify -t "MOS Update" -m "Redownloading and installing MOS version: $VERSION, you will be notified when it is safe to reboot" -p "normal"
+  notify -t "MOS Update" -m "Redownloading and installing MOS version: $VERSION, you will be notified when it is safe to reboot" -p "info"
 else
-  notify -t "MOS Update" -m "Changing MOS version from: $CURRENT_VERSION to version: $VERSION, you will be notified when it is safe to reboot" -p "normal"
+  notify -t "MOS Update" -m "Changing MOS version from: $CURRENT_VERSION to version: $VERSION, you will be notified when it is safe to reboot" -p "info"
 fi
 
 # Get assets ID's from rootfs and md5
@@ -143,7 +143,7 @@ if [ "$3" = "update_kernel" ] ; then
       --output /var/mos/mos-update/$KERNEL.json
     # Compare if Kernel needs to be upgraded
     if [ "$RUNNING_KERNEL" != $KERNEL ] ; then
-      notify -t "MOS Update" -m "Upgrading Kernel to new recommended Kernel: $KERNEL" -p "normal"
+      notify -t "MOS Update" -m "Upgrading Kernel to new recommended Kernel: $KERNEL" -p "info"
       # Get assed ID's for image/drivers and md5's
       ASSET_KERNEL=$(jq --arg kernel $KERNEL --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("image" + $arch)) | .id' /var/mos/mos-update/$KERNEL.json)
       ASSET_DRIVERS=$(jq --arg kernel $KERNEL --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("drivers" + $arch)) | .id' /var/mos/mos-update/$KERNEL.json)
@@ -151,7 +151,7 @@ if [ "$3" = "update_kernel" ] ; then
       ASSET_DRIVERS_MD5=$(jq --arg kernel $KERNEL --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("drivers" + $arch + ".md5")) | .id' /var/mos/mos-update/$KERNEL.json)
       UPDATE_KERNEL="true"
     else
-      notify -t "MOS Update" -m "No Kernel update needed, continuing with upgrade" -p "normal"
+      notify -t "MOS Update" -m "No Kernel update needed, continuing with upgrade" -p "info"
     fi
     if [ -z "$ARCHITECTURE" ] ; then
       # Get assets ID's from microcode and md5

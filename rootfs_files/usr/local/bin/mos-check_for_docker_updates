@@ -204,15 +204,15 @@ if [ "$2" = "notification" ] ; then
       MSG_UPDATES=$(IFS=','; echo "${CONTAINER_UPDATES[*]}")
       MSG_UPDATES=${MSG_UPDATES//,/,\ }
       if [ "$ERROR" = "true" ] ; then
-        notify -t "Docker Update Check" -m "Updates for following containers available: $MSG_UPDATES, some digests could not be retrieved" -p "warning"
+        notify -t "Docker Update Check" -m "Updates for following containers available: $MSG_UPDATES, some digests could not be retrieved" -p "info"
       else
-        notify -t "Docker Update Check" -m "Updates for following containers available: $MSG_UPDATES" -p "normal"
+        notify -t "Docker Update Check" -m "Updates for following containers available: $MSG_UPDATES" -p "info"
       fi
     else
       if [ "$ERROR" = "true" ] ; then
-        notify -t "Docker Update Check" -m "All containers checked, no updates found, some digests could not be retrieved" -p "warning"
+        notify -t "Docker Update Check" -m "All containers checked, no updates found, some digests could not be retrieved" -p "info"
       else
-        notify -t "Docker Update Check" -m "All containers up to date" -p "normal"
+        notify -t "Docker Update Check" -m "All containers up to date" -p "info"
       fi
     fi
   fi

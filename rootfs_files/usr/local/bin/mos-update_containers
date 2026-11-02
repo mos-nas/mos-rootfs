@@ -137,7 +137,7 @@ if [ "$2" = "notification" ] ; then
       MSG_UPDATES=${MSG_UPDATES//,/,\ }
       notify -t "Docker Updates" -m "Docker Containers updated: $MSG_UPDATES" -p "normal"
     else
-      notify -t "Docker Updates" -m "Nothing to do, all containers up to date" -p "normal"
+      notify -t "Docker Updates" -m "Nothing to do, all containers up to date" -p "info"
     fi
   fi
 else
