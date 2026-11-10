@@ -65,6 +65,11 @@ const commands = {
     handler: async () => await getService('system').getSystemLoad()
   },
 
+  'system:auto-update': {
+    description: 'Run scheduled automatic MOS update',
+    handler: async () => await getService('mos').autoUpdateOS()
+  },
+
   // Pools
   'pools:list': {
     description: 'Get all pool statuses',

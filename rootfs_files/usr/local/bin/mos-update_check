@@ -22,7 +22,29 @@ CUR_V="${VERSION}-${CHANNEL}"
 if [ "$(cat /var/mos/mos_update_check 2>/dev/null)" != "$AVAIL_V" ] ; then
   # Send notification and make sure to write /var/mos/mos_update_check to avoid duplicate messages
   if [ "$CUR_V" != "$AVAIL_V" ] ; then
-    notify -t "MOS Update" -m "New MOS version: $AVAIL_V found!"
+    PRIORITY="normal"
+    AUTO_MESSAGE="Automatic update to MOS version: $AVAIL_V scheduled!"
+    MESSAGE="New MOS version: $AVAIL_V found!"
+    # Try to get mos-release.json if new version is found
+    RELEASE_JSON=$(jq -r --arg tag "$AVAIL_V" '.[] | select(.tag_name == $tag) | .assets[] | select(.name == "mos-release.json") | .browser_download_url' /var/mos/mos-update/releases.json)
+    rm -f /var/mos/mos_update_check.json 2>/dev/null
+    if ! wget -q -T10 -O /var/mos/mos_update_check.json "$RELEASE_JSON" ; then
+      rm -f /var/mos/mos_update_check.json
+    else
+      SECURITY_NOTICE=$(jq -r '.mos.security_notice // ""' /var/mos/mos_update_check.json 2>/dev/null)
+      if [[ ! -z "$SECURITY_NOTICE" ]]; then
+        PRIORITY="alert"
+        AUTO_MESSAGE="Automatic update to MOS version: $AVAIL_V scheduled! Please upgrade as soon as possible, since this release includes security updates!"
+        MESSAGE="New MOS version: $AVAIL_V found! Please upgrade as soon as possible, since this release includes security updates!"
+      fi
+    fi
+    # If automatic updates are enabled, announce the scheduled auto update
+    AUTO_UPDATE_ENABLED=$(jq -r '.update_check.auto_update.enabled' /boot/config/system.json 2>/dev/null)
+    if [ "$AUTO_UPDATE_ENABLED" == "true" ] ; then
+      notify -t "MOS Auto Update" -m "$AUTO_MESSAGE" -p "$PRIORITY"
+    else
+      notify -t "MOS Update" -m "$MESSAGE" -p "$PRIORITY"
+    fi
     echo "$AVAIL_V" > /var/mos/mos_update_check
   fi
 fi
