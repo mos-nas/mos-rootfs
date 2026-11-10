@@ -24,6 +24,10 @@ on:
         required: true
         default: '24.22.1'
         type: string
+      security_notice:
+        description: 'Security notice URL (triggers security update notifications, leave empty for none)'
+        required: false
+        type: string
       docker_version:
         description: 'Docker Version'
         required: false
@@ -79,6 +83,7 @@ jobs:
               mos_version: '${{ github.event.inputs.mos_version }}',
               mos_recommended_kernel: '${{ github.event.inputs.mos_recommended_kernel }}',
               node_version: '${{ github.event.inputs.node_version }}',
+              security_notice: '${{ github.event.inputs.security_notice }}',
               docker_version: '${{ github.event.inputs.docker_version }}',
               lxc_version: '${{ github.event.inputs.lxc_version }}',
               qemu_version: '${{ github.event.inputs.qemu_version }}',
@@ -395,7 +400,7 @@ jobs:
         RECOMMENDED_KERNEL=${{ github.event.inputs.mos_recommended_kernel }}-mos
 
         chmod +x $WORKDIR/mos-json
-        $WORKDIR/mos-json "$CHANNEL" "$VERSION" "$RECOMMENDED_KERNEL" "$ROOTFS" "$FRONTEND_V" "$API_V" "${{ github.event.inputs.node_version }}" > $ROOTFS/etc/mos-release.json
+        $WORKDIR/mos-json "$CHANNEL" "$VERSION" "$RECOMMENDED_KERNEL" "$ROOTFS" "$FRONTEND_V" "$API_V" "${{ github.event.inputs.node_version }}" "${{ github.event.inputs.security_notice }}" > $ROOTFS/etc/mos-release.json
         chown root:root $ROOTFS/etc/mos-release.json
         chmod 755 $ROOTFS/etc/mos-release.json
         cp $ROOTFS/etc/mos-release.json $WORKDIR/release/mos-release.json
