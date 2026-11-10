@@ -18,6 +18,7 @@ jq -n \
   --arg recommended_kernel "$3" \
   --arg frontend "$5" \
   --arg api "$6" \
+  --arg security_notice "${8:-}" \
   '{
     mos: {
       version: $version,
@@ -25,7 +26,8 @@ jq -n \
       recommended_kernel: $recommended_kernel,
       channel: $channel,
       frontend: $frontend,
-      api: $api
+      api: $api,
+      security_notice: (if $security_notice == "" then null else $security_notice end)
     },
     base: [{
       os_name: $os_info.NAME,
