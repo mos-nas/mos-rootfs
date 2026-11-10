@@ -25,7 +25,7 @@ on:
         default: '24.13.0'
         type: string
       security_notice:
-        description: 'Security notice URL (triggers security update notifications, leave empty for none)'
+        description: 'Security notice URL'
         required: false
         type: string
       docker_version:
