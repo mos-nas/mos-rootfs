@@ -22,6 +22,14 @@ elif [ "$(get_arch)" == "arm64" ] ; then
   ARCHITECTURE="_arm64"
 fi
 
+# Detect auto update trigger
+MOS_TITLE="MOS Update"
+REBOOT_MSG=", you will be notified when it is safe to reboot."
+if [ "$4" = "auto" ] ; then
+  MOS_TITLE="MOS Auto Update"
+  REBOOT_MSG=""
+fi
+
 # Rollback to previous version
 rollback_mos() {
   # Get rollback version
@@ -29,10 +37,10 @@ rollback_mos() {
 
   # Check if rollback version is in place
   if [ -f /boot/rollback/rootfs ] ; then
-    notify -t "MOS Update" -m "Rolling back to MOS version: $ROLLBACK_VERSION" -p "info"
+    notify -t "$MOS_TITLE" -m "Rolling back to MOS version: $ROLLBACK_VERSION" -p "info"
     mv /boot/rollback/rootfs* /boot/
   else
-    notify -t "MOS Update" -m "No MOS release to roll back to found" -p "warning"
+    notify -t "$MOS_TITLE" -m "No MOS release to roll back to found" -p "warning"
     exit 1
   fi
   
@@ -95,7 +103,7 @@ mkdir -p /var/mos/mos-update/update >/dev/null 2>&1
 if [ "$1" = "latest" ] ; then
   VERSION=$(jq --arg channel "$2" -r '.[] | select(.tag_name | contains($channel)) | .tag_name' /var/mos/mos-update/releases.json | sort -V | tail -1)
   if [ -z "$VERSION" ] ; then
-    notify -t "MOS Update" -m "No latest MOS version in Channel $2 found" -p "alert"
+    notify -t "$MOS_TITLE" -m "No latest MOS version in Channel $2 found" -p "alert"
     exit 1
   fi
 else
@@ -104,11 +112,11 @@ fi
 
 # Display message if upgrading to the same version
 if [ "$VERSION" = "$CURRENT_VERSION" ] ; then
-  notify -t "MOS Update" -m "Version is the same as the current running MOS version, continuing in 10 seconds" -p "info"
+  notify -t "$MOS_TITLE" -m "Version is the same as the current running MOS version, continuing in 10 seconds" -p "info"
   sleep 10
-  notify -t "MOS Update" -m "Redownloading and installing MOS version: $VERSION, you will be notified when it is safe to reboot" -p "info"
+  notify -t "$MOS_TITLE" -m "Redownloading and installing MOS version: $VERSION, you will be notified when it is safe to reboot" -p "info"
 else
-  notify -t "MOS Update" -m "Changing MOS version from: $CURRENT_VERSION to version: $VERSION, you will be notified when it is safe to reboot" -p "info"
+  notify -t "$MOS_TITLE" -m "Changing MOS version from: $CURRENT_VERSION to version: ${VERSION}${REBOOT_MSG}" -p "info"
 fi
 
 # Get assets ID's from rootfs and md5
@@ -129,7 +137,7 @@ if [ "$3" = "update_kernel" ] ; then
   "https://api.github.com/repos/mos-nas/mos-rootfs/releases/assets/$ASSET_RELEASE_JSON"
   EXIT_STATUS=$?
   if [ "$EXIT_STATUS" != "0" ] ; then
-    notify -t "MOS Update" -m "Something went wrong getting recommended Kernel version, not updating Kernel" -p "warning"
+    notify -t "$MOS_TITLE" -m "Something went wrong getting recommended Kernel version, not updating Kernel" -p "warning"
     rm -f /var/mos/mos-update/mos-$VERSION.json
     UPDATE_KERNEL="false"
   else
@@ -143,7 +151,7 @@ if [ "$3" = "update_kernel" ] ; then
       --output /var/mos/mos-update/$KERNEL.json
     # Compare if Kernel needs to be upgraded
     if [ "$RUNNING_KERNEL" != $KERNEL ] ; then
-      notify -t "MOS Update" -m "Upgrading Kernel to new recommended Kernel: $KERNEL" -p "info"
+      notify -t "$MOS_TITLE" -m "Upgrading Kernel to new recommended Kernel: $KERNEL" -p "info"
       # Get assed ID's for image/drivers and md5's
       ASSET_KERNEL=$(jq --arg kernel $KERNEL --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("image" + $arch)) | .id' /var/mos/mos-update/$KERNEL.json)
       ASSET_DRIVERS=$(jq --arg kernel $KERNEL --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("drivers" + $arch)) | .id' /var/mos/mos-update/$KERNEL.json)
@@ -151,7 +159,7 @@ if [ "$3" = "update_kernel" ] ; then
       ASSET_DRIVERS_MD5=$(jq --arg kernel $KERNEL --arg arch "$ARCHITECTURE" -r '.[] | select(.tag_name == $kernel) | .assets[] | select(.name == ("drivers" + $arch + ".md5")) | .id' /var/mos/mos-update/$KERNEL.json)
       UPDATE_KERNEL="true"
     else
-      notify -t "MOS Update" -m "No Kernel update needed, continuing with upgrade" -p "info"
+      notify -t "$MOS_TITLE" -m "No Kernel update needed, continuing with upgrade" -p "info"
     fi
     if [ -z "$ARCHITECTURE" ] ; then
       # Get assets ID's from microcode and md5
@@ -183,7 +191,7 @@ curl -s -L \
 # Verify checksum
 echo "Verifying md5 checksum from rootfs"
 if [ "$(md5sum /var/mos/mos-update/update/rootfs | awk '{print $1}')" != "$(cat /var/mos/mos-update/update/rootfs.md5)" ] ; then
-  notify -t "MOS Update" -m "rootfs checksum error, aborting MOS update" -p "alert"
+  notify -t "$MOS_TITLE" -m "rootfs checksum error, aborting MOS update" -p "alert"
   rm -rf /var/mos/mos-update/update
   exit 1
 else
@@ -228,7 +236,7 @@ if [ "$UPDATE_KERNEL" = "true" ] ; then
   # Verify checksum from image
   echo "Verifying md5 checksum from Kernel image"
   if [ "$(md5sum /var/mos/mos-update/update/image | awk '{print $1}')" != "$(cat /var/mos/mos-update/update/image.md5)" ] ; then
-    notify -t "MOS Update" -m "Kernel image checksum error, not updating Kernel" -p "warning"
+    notify -t "$MOS_TITLE" -m "Kernel image checksum error, not updating Kernel" -p "warning"
     rm -f /var/mos/mos-update/update/image* /var/mos/mos-update/update/drivers*
     UPDATE_KERNEL="false"
   else
@@ -240,7 +248,7 @@ if [ "$UPDATE_KERNEL" = "true" ] ; then
   if [ "$UPDATE_KERNEL" = "true" ] ; then
     echo "Verifying md5 checksum from Kernel drivers"
     if [ "$(md5sum /var/mos/mos-update/update/drivers | awk '{print $1}')" != "$(cat /var/mos/mos-update/update/drivers.md5)" ] ; then
-      notify -t "MOS Update" -m "Kernel drivers checksum error, not updating Kernel" -p "warning"
+      notify -t "$MOS_TITLE" -m "Kernel drivers checksum error, not updating Kernel" -p "warning"
       rm -f /var/mos/mos-update/update/image* /var/mos/mos-update/update/drivers*
       UPDATE_KERNEL="false"
     else
@@ -273,7 +281,7 @@ if [ "$UPDATE_MICROCODE" = "true" ] ; then
     # Verify checksum
     echo "Verifying md5 checksum from microcode"
     if [ "$(md5sum /var/mos/mos-update/update/microcode | awk '{print $1}')" != "$(cat /var/mos/mos-update/update/microcode.md5)" ] ; then
-      notify -t "MOS Update" -m "microcode checksum error, not updating microcode" -p "alert"
+      notify -t "$MOS_TITLE" -m "microcode checksum error, not updating microcode" -p "alert"
       rm -rf /var/mos/mos-update/update/microcode*
     else
       echo "microcode checksum OK"
