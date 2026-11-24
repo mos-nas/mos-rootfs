@@ -81,7 +81,7 @@ done
   # Send notification and start SnapRAID operation
   notify -t "SnapRAID" -m "Starting SnapRAID operation $2 for Pool: $1" -p "info"
   snapraid -c /boot/config/snapraid/$1.conf$FIX_DISKS -l ">&2" $2 2>&1 1>/run/snapraid/$1.socket \
-    | tail -c "${SNAPRAID_LOG_LIMIT:-20971520}" > /var/log/snapraid/$1
+    | tail -c "${SNAPRAID_LOG_LIMIT:-20971520}" > /var/log/snapraid/${1}-${2}
 
   # Sync filesystems and wait for additional 3 minutes
   sync
@@ -101,9 +101,9 @@ done
       echo "{}" > /boot/config/snapraid/$1.results
     fi
     # Get results from current run
-    ERRORS=$(cat /var/log/snapraid/$1 | awk -F: '/summary:error:/{print $3}')
-    ERRORS_UNRECOVERABLE=$(cat /var/log/snapraid/$1 | awk -F: '/summary:error_unrecoverable:/{print $3}')
-    STATUS=$(cat /var/log/snapraid/$1 | awk -F: '/msg:status:/{print $3}' | sed 's/^ //')
+    ERRORS=$(cat /var/log/snapraid/${1}-${2} | awk -F: '/summary:error:/{print $3}')
+    ERRORS_UNRECOVERABLE=$(cat /var/log/snapraid/${1}-${2} | awk -F: '/summary:error_unrecoverable:/{print $3}')
+    STATUS=$(cat /var/log/snapraid/${1}-${2} | awk -F: '/msg:status:/{print $3}' | sed 's/^ //')
     DATE=$(date '+%Y-%m-%d %H:%M:%S')
     # Inject result into results file
     jq --arg errors "$ERRORS" \
@@ -125,9 +125,9 @@ done
   else
     # For other operations (sync, scrub, fix): check the log for errors
     HAS_ERROR=0
-    if grep -q "msg:fatal:" /var/log/snapraid/$1; then
+    if grep -q "msg:fatal:" /var/log/snapraid/${1}-${2} ; then
       HAS_ERROR=1
-    elif grep -q "^summary:exit:error" /var/log/snapraid/$1; then
+    elif grep -q "^summary:exit:error" /var/log/snapraid/${1}-${2} ; then
       HAS_ERROR=1
     fi
 
@@ -136,6 +136,16 @@ done
     else
       notify -t "SnapRAID" -m "SnapRAID operation $2 for Pool: $1 completed" -p "normal"
     fi
+  fi
+
+  # Preserve log file if enabled
+  PRESERVE_LOGS=$(echo "$POOL_INFO" | jq -r '.config.snapraid.preserve_logs')
+  if [ "$PRESERVE_LOGS" = "true" ] ; then
+    LOG_DATE=$(stat -c '%w' /var/log/snapraid/${1}-${2} | awk '{print $1}')
+    mv /var/log/snapraid/${1}-${2} /var/log/snapraid/${1}-${LOG_DATE}-${2}
+    [ ! -d /boot/logs/snapraid ] && \
+      mkdir -p /boot/logs/snapraid
+    cp /var/log/snapraid/${1}-${LOG_DATE}-${2} /boot/logs/snapraid/${1}-${LOG_DATE}-${2}.log
   fi
 
   # Remove socket file
